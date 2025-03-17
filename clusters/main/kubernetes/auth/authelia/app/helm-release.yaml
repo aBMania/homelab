@@ -45,15 +45,17 @@ spec:
             enabled: false
           certManager:
             enabled: true
-            certificateIssuer: domain-1-le-prod
+            certificateIssuer: domain-0-le-prod
         hosts:
-          - host: auth.${DOMAIN_1}
+          - host: auth.${DOMAIN_0}
             paths:
               - path: /
                 pathType: Prefix
     cnpg:
       main:
-        enabled: false
+        cluster:
+          instances: 1
+          singleNode: true
     persistence:
       data:
         enabled: true
@@ -66,7 +68,7 @@ spec:
         strategy: RollingUpdate
     theme: dark
     totp:
-      issuer: ${DOMAIN_1}
+      issuer: ${DOMAIN_0}
     notifier:
       filesystem:
         enabled: false
@@ -75,10 +77,10 @@ spec:
         host: ${SMTP_HOST}
         plain_password: ${SMTP_PASSWORD}
         port: 587
-        sender: auth@${DOMAIN_1}
-        startup_check_address: auth@${DOMAIN_1}
+        sender: auth@${DOMAIN_0}
+        startup_check_address: auth@${DOMAIN_0}
         username: ${SMTP_USER}
-    domain: ${DOMAIN_1}
+    domain: ${DOMAIN_0}
     authentication_backend:
       file:
         enabled: false
@@ -96,8 +98,8 @@ spec:
     access_control:
       rules:
         - domain:
-            - ${DOMAIN_1}
-            - '*.${DOMAIN_1}'
+            - ${DOMAIN_0}
+            - '*.${DOMAIN_0}'
           domain_regex: [ ]
           networks: [ ]
           policy: two_factor
