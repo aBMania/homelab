@@ -75,7 +75,9 @@ spec:
                 LLDAP_key_file: /data/private_key
     cnpg:
       main:
-        enabled: false
+        cluster:
+          instances: 1
+          singleNode: true
     persistence:
       data:
         enabled: true
