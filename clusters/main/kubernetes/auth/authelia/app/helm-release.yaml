@@ -61,6 +61,7 @@ spec:
         enabled: true
         type: nfs
         path: /mnt/tank/apps/authelia
+        mountPath: /data
         server: ${NFS_HOST}
     workload:
       main:

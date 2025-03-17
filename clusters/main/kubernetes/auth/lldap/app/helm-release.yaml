@@ -83,4 +83,5 @@ spec:
         enabled: true
         type: nfs
         path: /mnt/tank/apps/lldap
+        mountPath: /data
         server: ${NFS_HOST}
