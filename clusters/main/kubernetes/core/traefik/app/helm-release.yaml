@@ -31,8 +31,8 @@ spec:
     keepHistory: false
   values:
     logs:
-      general:
-        level: DEBUG
+      access:
+        enabled: true
     defaultCertificate: "domain-0-wildcard"
     service:
       tcp:
