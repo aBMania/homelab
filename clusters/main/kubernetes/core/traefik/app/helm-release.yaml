@@ -48,7 +48,7 @@ spec:
             - Remote-Email
           trustForwardHeader: true
       ipWhiteList:
-        - name: internal-only
+        - name: local
           sourceRange:
             - 10.0.0.0/8
             - 172.1.0.0/12
