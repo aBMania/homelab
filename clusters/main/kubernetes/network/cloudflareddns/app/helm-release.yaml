@@ -28,21 +28,8 @@ spec:
       image:
         tag: latest@sha256:51e8638867e5821812cd1b4c6f3cbda7ed7dda813881516e416b9fd5d18a28e1
       cloudflareddns:
-        api_token: ${CLOUDFLARE_TOKEN}
+        api_token: ${DOMAIN_0_CLOUDFLARE_TOKEN}
         host_zone_record:
-        - domain: auth.${DOMAIN_0}
+        - domain: ${DOMAIN_0}
           record: A
-        - domain: lldap.${DOMAIN_0}
-          record: A
-        - domain: lldap.${DOMAIN_0}
-          record: A
-        - domain: emby.${DOMAIN_0}
-          record: A
-        - domain: traefik.${DOMAIN_0}
-          record: A
-        - domain: tvshows.${DOMAIN_0}
-          record: A
-        - domain: movies.${DOMAIN_0}
-          record: A
-        - domain: torrent.${DOMAIN_0}
-          record: A
+          zone: ${DOMAIN_0}
