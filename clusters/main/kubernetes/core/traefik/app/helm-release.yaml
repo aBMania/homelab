@@ -30,6 +30,9 @@ spec:
   uninstall:
     keepHistory: false
   values:
+    logs:
+      general:
+        level: DEBUG
     defaultCertificate: "domain-0-wildcard"
     service:
       tcp:
