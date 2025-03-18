@@ -1,0 +1,48 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+    name: cloudflareddns
+    namespace: cloudflareddns
+spec:
+    interval: 5m
+    chart:
+        spec:
+            # renovate: registryUrl=https://charts.truechartsoci.org
+            chart: cloudflareddns
+            version: 11.5.3
+            sourceRef:
+                kind: HelmRepository
+                name: truecharts
+                namespace: flux-system
+            interval: 5m
+    install:
+        createNamespace: true
+        crds: CreateReplace
+        remediation:
+            retries: 3
+    upgrade:
+        crds: CreateReplace
+        remediation:
+            retries: 3
+    values:
+      image:
+        tag: latest@sha256:51e8638867e5821812cd1b4c6f3cbda7ed7dda813881516e416b9fd5d18a28e1
+      cloudflareddns:
+        api_token: ${CLOUDFLARE_TOKEN}
+        host_zone_record:
+        - domain: auth.${DOMAIN_0}
+          record: A
+        - domain: lldap.${DOMAIN_0}
+          record: A
+        - domain: lldap.${DOMAIN_0}
+          record: A
+        - domain: emby.${DOMAIN_0}
+          record: A
+        - domain: traefik.${DOMAIN_0}
+          record: A
+        - domain: tvshows.${DOMAIN_0}
+          record: A
+        - domain: movies.${DOMAIN_0}
+          record: A
+        - domain: torrent.${DOMAIN_0}
+          record: A
