@@ -43,7 +43,7 @@ spec:
             traefik:
               enabled: true
               middlewares:
-                - name: local
+                - name: auth
                   namespace: traefik
             certManager:
               enabled: true
