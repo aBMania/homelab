@@ -1,0 +1,85 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+    name: emby
+    namespace: media
+spec:
+    interval: 5m
+    chart:
+        spec:
+            # renovate: registryUrl=https://charts.truechartsoci.org
+            chart: emby
+            version: 22.4.21
+            sourceRef:
+                kind: HelmRepository
+                name: truecharts
+                namespace: flux-system
+            interval: 5m
+    install:
+        createNamespace: true
+        crds: CreateReplace
+        remediation:
+            retries: 3
+    upgrade:
+        crds: CreateReplace
+        remediation:
+            retries: 3
+    timeout: 20m
+    values:
+      portal:
+        open:
+          enabled: false
+      global:
+        stopAll: false
+      ingress:
+        annotations:
+          nginx.ingress.kubernetes.io/auth-method: 'GET'
+          nginx.ingress.kubernetes.io/auth-url: 'http://authelia.authelia.svc.cluster.local:9091/api/verify'
+          nginx.ingress.kubernetes.io/auth-signin: 'https://auth.${DOMAIN_0}?rm=$request_method'
+          nginx.ingress.kubernetes.io/auth-response-headers: 'Remote-User,Remote-Name,Remote-Groups,Remote-Email'
+        main:
+          enabled: true
+          integrations:
+            traefik:
+              enabled: true
+              middlewares:
+                - name: local
+                  namespace: traefik
+            certManager:
+              enabled: true
+              certificateIssuer: domain-1-le-prod
+          hosts:
+            - host: emby.${DOMAIN_0}
+              paths:
+                - path: /
+                  pathType: Prefix
+      persistence:
+        config:
+          enabled: true
+          type: nfs
+          path: /mnt/tank/apps/emby
+          mountPath: /config
+          server: ${NFS_HOST}
+        media:
+          enabled: true
+          type: nfs
+          path: /mnt/tank/media
+          mountPath: /media
+          server: ${NFS_HOST}
+        transcode:
+          enabled: true
+          type: nfs
+          path: /mnt/tank2/apps/emby-transcode
+          mountPath: /config/transcoding-temp
+          server: ${NFS_HOST}
+      workload:
+        main:
+          podSpec:
+            runtimeClassName: "nvidia"
+            containers:
+              main:
+                resources:
+                  limits:
+                    nvidia.com/gpu: 1
+      autodiscovery:
+        enabled: true

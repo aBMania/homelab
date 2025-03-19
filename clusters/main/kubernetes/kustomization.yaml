@@ -8,3 +8,4 @@ resources:
   - flux-entry.yaml
   - kube-system
   - network
+  - media
