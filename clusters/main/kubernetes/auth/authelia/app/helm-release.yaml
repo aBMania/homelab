@@ -100,9 +100,6 @@ spec:
         - domain:
             - ${DOMAIN_0}
             - '*.${DOMAIN_0}'
-          domain_regex: [ ]
-          networks: [ ]
-          policy: two_factor
-          resources: [ ]
+          policy: one_factor
           subject:
             - group:admin
