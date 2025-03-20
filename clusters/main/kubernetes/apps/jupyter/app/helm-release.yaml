@@ -25,23 +25,23 @@ spec:
         remediation:
             retries: 3
     values:
-    ingress:
-      main:
-        enabled: true
-        integrations:
-          traefik:
-            enabled: true
-            middlewares:
-              - name: auth
-                namespace: traefik
-          certManager:
-            enabled: true
-            certificateIssuer: domain-0-le-prod
-        hosts:
-          - host: science.${DOMAIN_0}
-            paths:
-              - path: /
-                pathType: Prefix
+      ingress:
+        main:
+          enabled: true
+          integrations:
+            traefik:
+              enabled: true
+              middlewares:
+                - name: auth
+                  namespace: traefik
+            certManager:
+              enabled: true
+              certificateIssuer: domain-0-le-prod
+          hosts:
+            - host: science.${DOMAIN_0}
+              paths:
+                - path: /
+                  pathType: Prefix
       persistence:
         data:
           type: nfs
