@@ -47,3 +47,10 @@ spec:
           type: nfs
           path: /mnt/tank/jupyter
           server: ${NFS_HOST}
+      workload:
+        main:
+          podSpec:
+            containers:
+              main:
+                env:
+                  NOTEBOOK_ARGS: --NotebookApp.token=''
