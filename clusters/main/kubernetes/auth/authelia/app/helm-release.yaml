@@ -98,6 +98,16 @@ spec:
     access_control:
       rules:
         - domain:
+          - "tvshows.${DOMAIN_0}"
+          - "movies.${DOMAIN_0}"
+          - "www.${DOMAIN_0}"
+          policy: one_factor
+          subject: group:user
+        - domain:
+          - "science.${DOMAIN_0}"
+          policy: one_factor
+          subject: group:science
+        - domain:
             - ${DOMAIN_0}
             - '*.${DOMAIN_0}'
           policy: one_factor
