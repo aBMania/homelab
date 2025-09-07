@@ -9,7 +9,7 @@ spec:
         spec:
             # renovate: registryUrl=https://charts.truechartsoci.org
             chart: jupyter
-            version: 11.32.32
+            version: 12.19.30
             sourceRef:
                 kind: HelmRepository
                 name: truecharts
