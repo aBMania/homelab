@@ -13,6 +13,11 @@
         "dependencyDashboardApproval": false,
         "matchPackageNames": ["ghcr.io/siderolabs/kubelet", "ghcr.io/siderolabs/installer"],
         "labels": ["type/major", "system-upgrade"]
+      },
+      {
+        "matchPackagePatterns": ["cilium"],
+        "matchDatasources": ["helm"],
+        "allowedVersions": "<=1.17.10"
       }
     ],
     "helm-values": {
