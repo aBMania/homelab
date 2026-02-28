@@ -64,6 +64,9 @@ spec:
           excludedNetworks_IPv4:
           - 192.168.178.0/24
           env:
+            FIREWALL: "on"
+            FIREWALL_OUTBOUND_SUBNETS: "192.168.178.0/24"
+            VPN_TYPE: "openvpn"
             VPN_SERVICE_PROVIDER: "${VPN_SERVICE_PROVIDER}"
             OPENVPN_USER: "${OPENVPN_USER}"
             OPENVPN_PASSWORD: "${OPENVPN_PASSWORD}"
