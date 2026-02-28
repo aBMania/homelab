@@ -7,6 +7,7 @@ spec:
   interval: 5m
   chart:
     spec:
+      # renovate: registryUrl=oci://oci.trueforge.org/truecharts
       chart: qbittorrent
       version: 24.5.1
       sourceRef:
@@ -61,10 +62,21 @@ spec:
         enabled: true
         container:
           env:
+#            FIREWALL: "on"
+#            FIREWALL_OUTBOUND_SUBNETS: "192.168.178.0/24"
+#            VPN_SERVICE_PROVIDER: "${VPN_SERVICE_PROVIDER}"
+#            VPN_TYPE: "openvpn"
+#            OPENVPN_USER: "${OPENVPN_USER}"
+#            OPENVPN_PASSWORD: "${OPENVPN_PASSWORD}"
+#            SERVER_COUNTRIES: "${SERVER_COUNTRIES}"
+
             FIREWALL: "on"
             FIREWALL_OUTBOUND_SUBNETS: "192.168.178.0/24"
+            VPN_TYPE: "wireguard"
             VPN_SERVICE_PROVIDER: "${VPN_SERVICE_PROVIDER}"
-            VPN_TYPE: "openvpn"
-            OPENVPN_USER: "${OPENVPN_USER}"
-            OPENVPN_PASSWORD: "${OPENVPN_PASSWORD}"
-            SERVER_COUNTRIES: "${SERVER_COUNTRIES}"
+            WIREGUARD_PRIVATE_KEY: "${WIREGUARD_PRIVATE_KEY}"
+            FIREWALL_VPN_INPUT_PORTS: "${FIREWALL_VPN_INPUT_PORTS}"
+            WIREGUARD_ADDRESSES: "${WIREGUARD_ADDRESSES}"
+            VPN_ENDPOINT_PORT: "${VPN_ENDPOINT_PORT}"
+            WIREGUARD_PUBLIC_KEY: "${WIREGUARD_PUBLIC_KEY}"
+            VPN_ENDPOINT_IP: "${VPN_ENDPOINT_IP}"
