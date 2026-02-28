@@ -81,3 +81,8 @@ spec:
             # VPN_ENDPOINT_PORT: "${VPN_ENDPOINT_PORT}"
             WIREGUARD_PUBLIC_KEY: "${WIREGUARD_PUBLIC_KEY}"
             VPN_ENDPOINT_IP: "${VPN_ENDPOINT_IP}"
+            VPN_PORT_FORWARDING: "on"
+  qbitportforward:
+    enabled: true
+    QBT_USERNAME: "admin"
+    QBT_PASSWORD: "adminadmin"
