@@ -63,25 +63,13 @@ spec:
         enabled: true
         container:
           env:
-            # FIREWALL: "on"
-            # FIREWALL_OUTBOUND_SUBNETS: "192.168.178.0/24"
-            # VPN_SERVICE_PROVIDER: "${VPN_SERVICE_PROVIDER}"
-            # VPN_TYPE: "openvpn"
-            # OPENVPN_USER: "${OPENVPN_USER}"
-            # OPENVPN_PASSWORD: "${OPENVPN_PASSWORD}"
-            # SERVER_COUNTRIES: "${SERVER_COUNTRIES}"
-
             FIREWALL: "on"
             FIREWALL_OUTBOUND_SUBNETS: "192.168.178.0/24"
-            VPN_TYPE: "wireguard"
             VPN_SERVICE_PROVIDER: "${VPN_SERVICE_PROVIDER}"
+            VPN_TYPE: "wireguard"
             WIREGUARD_PRIVATE_KEY: "${WIREGUARD_PRIVATE_KEY}"
-            FIREWALL_VPN_INPUT_PORTS: "${FIREWALL_VPN_INPUT_PORTS},8000"
-            WIREGUARD_ADDRESSES: "${WIREGUARD_ADDRESSES}"
-            # VPN_ENDPOINT_PORT: "${VPN_ENDPOINT_PORT}"
-            WIREGUARD_PUBLIC_KEY: "${WIREGUARD_PUBLIC_KEY}"
+            SERVER_COUNTRIES: "${SERVER_COUNTRIES}"
+            PORT_FORWARD_ONLY: "on"
             VPN_PORT_FORWARDING: "on"
-    qbitportforward:
-      enabled: true
-      QBT_USERNAME: "admin"
-      QBT_PASSWORD: "adminadmin"
+            VPN_PORT_FORWARDING_UP_COMMAND: /bin/sh -c 'wget -O- -nv --retry-connrefused --post-data "json={\"listen_port\":{{PORT}},\"current_network_interface\":\"{{VPN_INTERFACE}}\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:10095/api/v2/app/setPreferences'
+            VPN_PORT_FORWARDING_DOWN_COMMAND: /bin/sh -c 'wget -O- -nv --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}" http://127.0.0.1:10095/api/v2/app/setPreferences'
