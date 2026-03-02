@@ -9,7 +9,7 @@ spec:
     spec:
       # renovate: registryUrl=oci://oci.trueforge.org/truecharts
       chart: qbittorrent
-      version: 24.5.1
+      version: 24.6.0
       sourceRef:
         kind: HelmRepository
         name: truecharts
