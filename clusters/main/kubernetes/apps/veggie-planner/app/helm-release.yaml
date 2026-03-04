@@ -19,16 +19,16 @@ spec:
     createNamespace: true
   values:
     ingress:
-      main:
-        enabled: true
-        integrations:
-          traefik:
-            enabled: true
-          certManager:
-            enabled: true
-            certificateIssuer: domain-0-le-prod
-        hosts:
-          - host: veggie-planner.${DOMAIN_0}
-            paths:
-              - path: /
-                pathType: Prefix
+      enabled: true
+
+      annotations:
+        cert-manager.io/cluster-issuer: domain-0-le-prod
+      hosts:
+        - host: veggie-planner.${DOMAIN_0}
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: veggie-planner-tls
+          hosts:
+            - veggie-planner.${DOMAIN_0}
