@@ -5,6 +5,7 @@ metadata:
     namespace: flux-system
 resources:
   - abmania.yaml
+  - fait-maison.yaml
   - bjw-s.yaml
   - cilium.yaml
   - cloudnative-pg.yaml

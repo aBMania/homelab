@@ -4,4 +4,5 @@ resources:
   - jupyter/ks.yaml
   - nextcloud/ks.yaml
   - truenas/ks.yaml
+  - veggie-planner/ks.yaml
   - whosaid/ks.yaml
