@@ -20,9 +20,11 @@ spec:
   values:
     ingress:
       enabled: true
-
       annotations:
         cert-manager.io/cluster-issuer: domain-0-le-prod
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+
       hosts:
         - host: veggie-planner.${DOMAIN_0}
           paths:
