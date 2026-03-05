@@ -1,0 +1,36 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: panio
+  namespace: panio
+spec:
+  interval: 5m
+  chart:
+    spec:
+      # renovate: registryUrl=oci://ghcr.io/fait-maison/helm
+      chart: panio
+      version: 0.0.1
+      sourceRef:
+        kind: HelmRepository
+        name: fait-maison
+        namespace: flux-system
+      interval: 5m
+  install:
+    createNamespace: true
+  values:
+    ingress:
+      enabled: true
+      annotations:
+        cert-manager.io/cluster-issuer: domain-0-le-prod
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+
+      hosts:
+        - host: panio.${DOMAIN_0}
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: panio-tls
+          hosts:
+            - panio.${DOMAIN_0}
