@@ -6,4 +6,5 @@ resources:
   - truenas/ks.yaml
   - panio/ks.yaml
   - veggie-planner/ks.yaml
+  - suivi-saeg/ks.yaml
   - whosaid/ks.yaml
