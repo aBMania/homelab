@@ -80,7 +80,11 @@ spec:
                 failureThreshold: 5
           env:
             FIREWALL: "on"
-            FIREWALL_OUTBOUND_SUBNETS: "192.168.1.0/24"
+            # Not needed: lets qBittorrent reach the LAN outside the VPN, but nothing
+            # uses it (NFS volumes are mounted by the node; WebUI/*arr traffic uses
+            # the pod/service CIDRs, which the chart always allows). Kept here as
+            # the correct LAN value in case direct LAN access is ever needed.
+            # FIREWALL_OUTBOUND_SUBNETS: "192.168.1.0/24"
             VPN_SERVICE_PROVIDER: "${VPN_SERVICE_PROVIDER}"
             VPN_TYPE: "wireguard"
             WIREGUARD_PRIVATE_KEY: "${WIREGUARD_PRIVATE_KEY}"
