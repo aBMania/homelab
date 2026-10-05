@@ -5,7 +5,6 @@
     "automerge": false,
     "dependencyDashboardApproval": false
   },
-  "ignore": [],
   "packageRules": [
     {
       "description": ["Block automerge for Kubelet and Talos version Major"],
@@ -13,14 +12,20 @@
       "dependencyDashboardApproval": false,
       "matchPackageNames": ["ghcr.io/siderolabs/kubelet", "ghcr.io/siderolabs/installer"],
       "labels": ["type/major", "system-upgrade"]
+    },
+    {
+      "description": ["Talos and Kubernetes must be upgraded one minor version at a time: one PR per minor, never automerged"],
+      "matchPackageNames": ["ghcr.io/siderolabs/kubelet", "ghcr.io/siderolabs/installer"],
+      "separateMultipleMinor": true,
+      "automerge": false
     }
   ],
   "helm-values": {
-    "fileMatch": [
-      "(^|/)clusters/.+\\.ya?ml$",
-      "(^|/)kubernetes/.+\\-values\\.ya?ml$",
-      "(^|/)repositories/.+\\-values\\.ya?ml$",
-      "(^|/)charts/.+\\-values\\.ya?ml$"
+    "managerFilePatterns": [
+      "/(^|/)clusters/.+\\.ya?ml$/",
+      "/(^|/)kubernetes/.+\\-values\\.ya?ml$/",
+      "/(^|/)repositories/.+\\-values\\.ya?ml$/",
+      "/(^|/)charts/.+\\-values\\.ya?ml$/"
     ]
   }
 }
