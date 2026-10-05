@@ -7,7 +7,7 @@ spec:
     interval: 5m
     chart:
         spec:
-            # renovate: registryUrl=https://charts.truechartsoci.org
+            # renovate: registryUrl=oci://oci.trueforge.org/truecharts
             chart: emby
             version: 26.7.1
             sourceRef:

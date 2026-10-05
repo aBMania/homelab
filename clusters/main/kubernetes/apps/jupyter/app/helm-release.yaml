@@ -7,7 +7,7 @@ spec:
     interval: 5m
     chart:
         spec:
-            # renovate: registryUrl=https://charts.truechartsoci.org
+            # renovate: registryUrl=oci://oci.trueforge.org/truecharts
             chart: jupyter
             version: 11.32.32
             sourceRef:
