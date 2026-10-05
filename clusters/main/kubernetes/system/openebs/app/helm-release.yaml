@@ -42,3 +42,10 @@ spec:
         # The Mayastor backend contains a duplicate of snapshot controller which will cause conflicts
         mayastor:
           enabled: false
+
+    # Chart >= 4.3 enables a Loki/MinIO/Alloy logging stack by default;
+    # Loki needs 3 nodes (hostname anti-affinity) so it never gets ready here
+    loki:
+      enabled: false
+    alloy:
+      enabled: false

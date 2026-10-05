@@ -76,5 +76,7 @@ spec:
     kubeProxyReplacementHealthzBindAddr: 0.0.0.0:10256
     localRedirectPolicy: true
     operator:
+      # Single node: a 2nd replica can never schedule (hostNetwork port 9963 clash)
+      replicas: 1
       rollOutPods: true
     rollOutCiliumPods: true
