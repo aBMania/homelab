@@ -25,3 +25,8 @@ spec:
       strategy: rollback
       retries: 3
   values:
+    podOptions:
+      # Chart >= 3.7.3 defaults to user namespaces (hostUsers: false), which
+      # Talos disables (user.max_user_namespaces=0): pods fail with
+      # "failed to start noop process for unshare: no space left on device"
+      hostUsers: true
