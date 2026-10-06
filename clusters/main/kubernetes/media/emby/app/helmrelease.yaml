@@ -76,7 +76,14 @@ spec:
           path: /mnt/tank2/apps/emby-transcode
           mountPath: /config/transcoding-temp
           server: ${NFS_HOST}
-      # GPU temporarily removed for the Talos 1.13 migration (nvidia-device-plugin
-      # -> gpu-operator/CDI). Restored once gpu-operator is installed.
+      workload:
+        main:
+          podSpec:
+            runtimeClassName: "nvidia"
+            containers:
+              main:
+                resources:
+                  limits:
+                    nvidia.com/gpu: 1
       autodiscovery:
         enabled: true
