@@ -7,11 +7,13 @@ spec:
   interval: 5m
   chart:
     spec:
+      # Upstream jetstack chart (the TrueCharts cert-manager chart is archived).
+      # Upgrade one cert-manager minor at a time.
       chart: cert-manager
-      version: 6.5.2
+      version: v1.16.3
       sourceRef:
         kind: HelmRepository
-        name: truecharts
+        name: jetstack
         namespace: flux-system
       interval: 5m
   install:
@@ -24,3 +26,19 @@ spec:
     remediation:
       retries: 3
   values:
+    # Same object names/selectors as the former TrueCharts release (in-place switch)
+    nameOverride: certmanager
+    fullnameOverride: cert-manager-certmanager
+    crds:
+      enabled: true
+      keep: true
+    # Flags the TrueCharts chart set: verify DNS01 challenges via public resolvers
+    # (the cluster's own DNS can answer differently), and own secrets by certificates
+    enableCertificateOwnerRef: true
+    dns01RecursiveNameservers: "1.1.1.1:53,1.0.0.1:53"
+    prometheus:
+      enabled: true
+      servicemonitor:
+        enabled: true
+    startupapicheck:
+      enabled: false
