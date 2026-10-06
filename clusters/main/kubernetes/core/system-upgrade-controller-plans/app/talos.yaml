@@ -51,3 +51,7 @@ spec:
       - --preserve=true
       - --wait=false
       - --force
+      # Talos >= 1.13: the new upgrade API drops machine.install.extraKernelArgs
+      # (net.ifnames=0) on GRUB nodes with grubUseUKICmdline=false (this node).
+      # --legacy keeps the old behaviour (supported until Talos 1.18).
+      - --legacy
