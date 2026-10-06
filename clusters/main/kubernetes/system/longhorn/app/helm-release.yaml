@@ -29,6 +29,8 @@ spec:
       defaultReplicaCount: 1
       # Overprovisioning might be needed when using volsync
       storageOverProvisioningPercentage: 100000
+      # Keep volume engines on the current engine image (needed before minor upgrades)
+      concurrentAutomaticEngineUpgradePerNodeLimit: 1
       # v2DataEngine: true
     persistence:
       # Set to false to pick another CSI as default
