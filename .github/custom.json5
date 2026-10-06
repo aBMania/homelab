@@ -5,7 +5,24 @@
     "automerge": false,
     "dependencyDashboardApproval": false
   },
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
   "packageRules": [
+    {
+      "description": ["Chart updates are reviewed by hand: newer TrueCharts charts can switch apps to root or to user namespaces, which break on Talos + NFS"],
+      "matchManagers": ["flux"],
+      "automerge": false
+    },
+    {
+      "description": ["Release tags look like 2026.09.28.1 (4 parts); the default versioning can't compare them"],
+      "matchPackageNames": ["Homebrew/actions"],
+      "versioning": "loose"
+    },
+    {
+      "description": ["Dev container only; oci.trueforge.org doesn't answer anonymous digest lookups"],
+      "matchFileNames": [".devcontainer/**"],
+      "enabled": false
+    },
     {
       "description": ["Block automerge for Kubelet and Talos version Major"],
       "matchUpdateTypes": ["major"],
