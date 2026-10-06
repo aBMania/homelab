@@ -1,0 +1,71 @@
+---
+# NVIDIA GPU via gpu-operator + CDI (Talos >= 1.13). Talos ships the driver and
+# container toolkit as system extensions, so the operator only runs the device
+# plugin, GPU feature discovery and validators.
+# https://docs.siderolabs.com/talos/v1.13/configure-your-talos-cluster/hardware-and-drivers/nvidia-gpu-proprietary
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gpu-operator
+  namespace: gpu-operator
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: gpu-operator
+      version: v26.7.1
+      sourceRef:
+        kind: HelmRepository
+        name: nvidia
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    driver:
+      enabled: false
+    toolkit:
+      enabled: false
+    hostPaths:
+      driverInstallDir: /usr/local
+    # node-feature-discovery already runs in kube-system
+    nfd:
+      enabled: false
+    # Not applicable to a single GeForce GTX 960 (Maxwell)
+    dcgmExporter:
+      enabled: false
+    migManager:
+      enabled: false
+    vfioManager:
+      enabled: false
+    ccManager:
+      enabled: false
+    # CUDA 13 dropped Maxwell: skip only the vectorAdd sample workload;
+    # driver/toolkit/device-plugin validations still run
+    validator:
+      cuda:
+        env:
+          - name: WITH_WORKLOAD
+            value: "false"
+    # Share the single GPU as 5 slots (same as the former nvidia-device-plugin)
+    devicePlugin:
+      config:
+        create: true
+        name: time-slicing-config
+        default: any
+        data:
+          any: |-
+            version: v1
+            flags:
+              migStrategy: none
+            sharing:
+              timeSlicing:
+                renameByDefault: false
+                failRequestsGreaterThanOne: false
+                resources:
+                  - name: nvidia.com/gpu
+                    replicas: 5
