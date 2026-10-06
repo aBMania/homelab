@@ -11,7 +11,7 @@ spec:
       # repackaging with identical resource names, so the switch is in-place).
       # Upgrade one operator minor at a time (CNPG guidance).
       chart: cloudnative-pg
-      version: 0.23.2
+      version: 0.25.0
       sourceRef:
         kind: HelmRepository
         name: cloudnative-pg
