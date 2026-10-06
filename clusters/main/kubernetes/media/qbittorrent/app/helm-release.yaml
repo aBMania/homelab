@@ -46,7 +46,42 @@ spec:
             paths:
               - path: /
                 pathType: Prefix
+    configmap:
+      gluetun-scripts:
+        enabled: true
+        data:
+          # Run by gluetun each time it gets a forwarded port: sets the port and
+          # (re)applies the qBittorrent settings that keep the VPN tunnel stable.
+          # Without limits/queueing, qBittorrent opens so many new connections
+          # that ProtonVPN drops all new flows for 30s-2min (tunnel "blackouts").
+          qbt-up.sh: |
+            #!/bin/sh
+            cat > /tmp/qbt-prefs.json <<EOF
+            {
+              "listen_port": $1, "random_port": false, "upnp": false,
+              "max_connec": 300, "max_connec_per_torrent": 30, "max_uploads": 60,
+              "connection_speed": 10, "max_concurrent_http_announces": 10,
+              "dl_limit": 25000000, "up_limit": 6000000,
+              "alt_dl_limit": 25000000, "alt_up_limit": 6000000,
+              "limit_tcp_overhead": true,
+              "queueing_enabled": true, "max_active_downloads": 10,
+              "max_active_uploads": 25, "max_active_torrents": 35,
+              "dont_count_slow_torrents": false
+            }
+            EOF
+            wget -qO- --retry-connrefused --tries=30 \
+              --post-data "json=$(tr -d '\n ' < /tmp/qbt-prefs.json)" \
+              http://127.0.0.1:10095/api/v2/app/setPreferences
     persistence:
+      gluetun-scripts:
+        enabled: true
+        type: configmap
+        objectName: gluetun-scripts
+        defaultMode: "0755"
+        targetSelector:
+          main:
+            gluetun:
+              mountPath: /scripts
       config:
         enabled: true
         type: nfs
@@ -66,18 +101,30 @@ spec:
       gluetun:
         enabled: true
         container:
-          # Restart gluetun if it hangs mid-reconnect (it did for 2 months)
+          # Restart gluetun if it hangs (it froze for 2 months) or if port
+          # forwarding stays dead (v3.41.3 never retries a failed first attempt)
           probes:
             liveness:
               enabled: true
               type: exec
               command:
-                - /gluetun-entrypoint
-                - healthcheck
+                - /bin/sh
+                - -c
+                - /gluetun-entrypoint healthcheck && wget -qO- http://127.0.0.1:8000/v1/portforward | grep -q '"port":[1-9]'
               spec:
-                initialDelaySeconds: 60
+                initialDelaySeconds: 120
                 periodSeconds: 30
-                failureThreshold: 5
+                timeoutSeconds: 10
+                failureThreshold: 8
+          # A restarted gluetun container finds its old routing rule still in the
+          # shared pod network namespace and crash-loops on "file exists"
+          lifecycle:
+            postStart:
+              type: exec
+              command:
+                - /bin/sh
+                - -c
+                - (ip rule del table 51820; ip -6 rule del table 51820) || true
           env:
             FIREWALL: "on"
             # Not needed: lets qBittorrent reach the LAN outside the VPN, but nothing
@@ -91,5 +138,4 @@ spec:
             SERVER_COUNTRIES: "${SERVER_COUNTRIES}"
             PORT_FORWARD_ONLY: "on"
             VPN_PORT_FORWARDING: "on"
-            VPN_PORT_FORWARDING_UP_COMMAND: "/bin/sh -c 'wget -O- -nv --retry-connrefused --post-data \"json={\\\"listen_port\\\":{{`{{PORT}}`}},\\\"random_port\\\":false,\\\"upnp\\\":false}\" http://127.0.0.1:10095/api/v2/app/setPreferences'"
-            VPN_PORT_FORWARDING_DOWN_COMMAND: "/bin/sh -c 'wget -O- -nv --retry-connrefused --post-data \"json={\\\"listen_port\\\":6881,\\\"random_port\\\":false,\\\"upnp\\\":false}\" http://127.0.0.1:10095/api/v2/app/setPreferences'"
+            VPN_PORT_FORWARDING_UP_COMMAND: "/bin/sh /scripts/qbt-up.sh {{`{{PORT}}`}}"
