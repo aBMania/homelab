@@ -64,8 +64,8 @@ spec:
               "dl_limit": 25000000, "up_limit": 6000000,
               "alt_dl_limit": 25000000, "alt_up_limit": 6000000,
               "limit_tcp_overhead": true,
-              "queueing_enabled": true, "max_active_downloads": 5,
-              "max_active_uploads": 25, "max_active_torrents": 30,
+              "queueing_enabled": true, "max_active_downloads": 10,
+              "max_active_uploads": 25, "max_active_torrents": 35,
               "dont_count_slow_torrents": false
             }
             EOF
