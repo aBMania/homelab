@@ -50,6 +50,13 @@ spec:
               paths:
                 - path: /
                   pathType: Prefix
+      # The chart runs Emby as root (0:0). Root is squashed to nobody (65534) on
+      # the NFS share, so it can't update files owned by 568 (plugin updates
+      # failed) and leaves nobody-owned files behind. Run as 568 like before.
+      securityContext:
+        container:
+          runAsUser: 568
+          runAsGroup: 568
       persistence:
         config:
           enabled: true
