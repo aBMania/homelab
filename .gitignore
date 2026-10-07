@@ -21,3 +21,5 @@ mounts/
 !*.tfstate.sops.json
 *.tfvars
 crash.log
+# node:down/node:up state
+.state/

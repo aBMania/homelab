@@ -1,0 +1,18 @@
+# Talos machine config patch (strategic merge). Merged into the generated config by talhelper.
+# Network kept in the legacy v1alpha1 format, exactly as the node runs it today. talhelper's
+# networkInterfaces would emit the Talos 1.13 multi-document format (LinkConfig, Layer2VIPConfig,
+# ResolverConfig), which needs a reboot to switch. Migrate deliberately, with console access.
+machine:
+  network:
+    interfaces:
+      - interface: eth0
+        addresses:
+          - ${MASTER1IP}/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: ${GATEWAY}
+        vip:
+          ip: ${VIP}
+    nameservers:
+      - 1.1.1.1
+      - 8.8.8.8

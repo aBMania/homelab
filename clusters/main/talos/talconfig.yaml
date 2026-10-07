@@ -26,21 +26,8 @@ nodes:
   - hostname: k8s-control-1
     ipAddress: ${MASTER1IP}
     controlPlane: true
-    nameservers:
-      - 1.1.1.1
-      - 8.8.8.8
     installDiskSelector:
       size: <= 1600GB
-    networkInterfaces:
-      # suffix is the adapter mac adres.
-      - interface: eth0
-        addresses:
-          - ${MASTER1IP}/24
-        routes:
-          - network: 0.0.0.0/0
-            gateway: ${GATEWAY}
-        vip:
-          ip: ${VIP}
     schematic:
       customization:
         extraKernelArgs:
@@ -54,6 +41,7 @@ nodes:
             - siderolabs/nvidia-container-toolkit-lts
     patches:
       - "@./patches/nvidia.yaml"
+      - "@./patches/network.yaml"
 controlPlane:
   patches:
     - '@./patches/controlplane.yaml'

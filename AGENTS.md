@@ -97,7 +97,7 @@ If a HelmRelease shows `Stalled` / `RetriesExceeded`, Flux has stopped retrying 
 ## Talos / node
 
 - Node config lives in `clusters/main/talos/talconfig.yaml` and `patches/` (strategic-merge patches; Talos 1.13 configs are multi-document, so JSON6902 `op/path` patches no longer work). Variables come from `clusters/main/clusterenv.yaml`.
-- `mise run talos:genconfig` generates the machine config + `talosconfig` with talhelper (secrets decrypted in memory). `mise run talos:diff` dry-runs it against the live node; **always diff before `mise run talos:apply`**, which may reboot the node. The generated config currently only differs from the live node in format (Talos 1.13 multi-doc network), so applying it means a reboot.
+- `mise run talos:genconfig` generates the machine config + `talosconfig` with talhelper (secrets decrypted in memory). `mise run talos:diff` dry-runs it against the live node; **always diff before `mise run talos:apply`**, which may reboot the node. The network is kept in the legacy v1alpha1 format via `patches/network.yaml`. Moving to the Talos 1.13+ multi-document network config (`networkInterfaces` in talconfig) is a deliberate change: it needs a reboot, so do it with console access.
 - `mise run talos:backup` refreshes the encrypted live-config copy in `talos/backup/`. Run it after any change to the node.
 - Talos and Kubernetes versions are pinned in `talconfig.yaml` and `flux-system/flux/upgradesettings.yaml`. Upgrades run through system-upgrade-controller plans in `core/system-upgrade-controller-plans/`. Major bumps are deliberately not automerged.
 - The admin kubeconfig client certificate expires after a year: `mise run talos:kubeconfig`.
@@ -152,17 +152,17 @@ Public DNS for `DOMAIN_0` lives in Cloudflare and is managed by Terraform in `te
 - NVIDIA runs through Talos extensions (`nonfree-kmod-nvidia-lts`, `nvidia-container-toolkit-lts`) plus **gpu-operator** in `core/gpu-operator`. The driver and toolkit are disabled there, and CDI is on.
 - **Time-slicing gives 5 `nvidia.com/gpu` slots.** Pods request `nvidia.com/gpu: 1` with `runtimeClassName: nvidia`. The CUDA validation workload is off because CUDA 13 dropped Maxwell.
 
-**Shutting the node down safely (TrueNAS reboot, maintenance)**
+**Shutting the node down safely (TrueNAS reboot, maintenance, `talos:apply`)**
 - `talosctl shutdown` stops pods in parallel. Longhorn can go away while Postgres is still writing: I/O errors, then a crash-recovery.
-- Before a planned shutdown:
-  1. Suspend Flux.
-  2. Set `cnpg.io/hibernation=on` on the CNPG clusters.
-  3. Scale the other Longhorn consumers to 0.
-  4. Wait until **all Longhorn volumes are `detached`**, then shut down.
-- Afterwards:
-  1. Uncordon the node.
-  2. Set hibernation to **`off`** (removing the annotation is not enough).
-  3. Restore the replica counts and resume Flux.
+- Use `mise run node:down [shutdown|reboot]` (`--dry-run` shows the plan). It auto-discovers everything mounting Longhorn volumes:
+  - hibernates the CNPG clusters
+  - scales Deployments/StatefulSets to 0
+  - suspends CronJobs
+  - pauses Flux
+  - waits until every volume is detached, aborting and restoring on timeout
+  - only then optionally shuts down or reboots
+- Without an argument it only quiesces, e.g. before a TrueNAS reboot or `mise run talos:apply`.
+- Afterwards `mise run node:up` undoes it from `.state/quiesce.json` and runs the health checks.
 
 **Longhorn**
 - `concurrentAutomaticEngineUpgradePerNodeLimit` must stay > 0, so volume engines follow the manager. Before a minor Longhorn upgrade, check that every volume runs the current engine image.
