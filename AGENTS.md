@@ -113,7 +113,7 @@ Rebuilding the node from scratch (needs `age.agekey` from its backup):
 
 ## Validation
 
-CLI tools are pinned in `mise.toml`. Run `mise install` once; inside the repo, mise puts them on PATH. `talosctl`, `kubectl` and `flux` match the cluster versions. Bump them together with the cluster, never ahead of it: Talos must stay on 1.13 because of the GTX 960. Tasks: `mise run validate` (same checks as CI) and `mise run tf <args>` (Terraform, see below).
+CLI tools are pinned in `mise.toml`. Run `mise install` once; inside the repo, mise puts them on PATH. `talosctl`, `kubectl` and `flux` match the cluster versions. Bump them together with the cluster, never ahead of it (see the GPU note under Operations notes). Tasks: `mise run validate` (same checks as CI) and `mise run tf <args>` (Terraform, see below).
 
 Before proposing a change to `clusters/main/kubernetes/`, run the same checks as CI:
 
