@@ -38,8 +38,8 @@ spec:
             env:
               TZ: Europe/Paris
               LOG_LEVEL: INFO
-              # Only log what would be removed. Set to "False" once the logs look right.
-              TEST_RUN: "True"
+              # Live since 2026-10-08 (test-run logs reviewed)
+              TEST_RUN: "False"
               # Check every 10 min; a download is removed after 36 strikes in a row (~6h)
               TIMER: "10"
               # Frees qBittorrent queue slots held by dead torrents, blocklists the
@@ -50,12 +50,14 @@ spec:
                 max_strikes: 36
               REMOVE_FAILED_DOWNLOADS: "True"
               # Only imports that are useless anyway (a better/same file is already in
-              # the library); other failures are left for manual review
+              # the library) or fake releases carrying malware (.exe/.lnk flagged by the
+              # *arrs); other failures are left for manual review
               REMOVE_FAILED_IMPORTS: |
                 message_patterns:
                   - "Not an upgrade for existing*"
                   - "*already imported at*"
                   - "Episode file on disk contains more episodes than this file contains"
+                  - "Caution: Found*"
               # $(VAR) is expanded by Kubernetes from the envFrom secret above
               SONARR: |
                 - base_url: "http://sonarr.media.svc.cluster.local:8989"
