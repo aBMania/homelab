@@ -9,16 +9,6 @@
   "prHourlyLimit": 2,
   "packageRules": [
     {
-      "description": ["Talos 1.13 supports Kubernetes up to 1.36, and the GTX 960 keeps Talos on 1.13 (NVIDIA 580 is its last driver): never propose newer"],
-      "matchPackageNames": ["ghcr.io/siderolabs/kubelet", "registry.k8s.io/kubectl"],
-      "allowedVersions": "<1.37.0"
-    },
-    {
-      "description": ["Talos stays on 1.13 for the GTX 960 (NVIDIA 580 is its last driver branch)"],
-      "matchPackageNames": ["ghcr.io/siderolabs/installer", "ghcr.io/siderolabs/talosctl"],
-      "allowedVersions": "<1.14.0"
-    },
-    {
       "description": ["CLI tools in mise.toml that must match the cluster versions: patch updates only (bump minors together with the Talos/Kubernetes/Flux upgrade)"],
       "matchManagers": ["mise"],
       "matchDepNames": ["talosctl", "kubectl", "flux2"],

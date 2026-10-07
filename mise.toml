@@ -1,6 +1,6 @@
 # Tools used in this repo. Run `mise install` once, then mise puts them on PATH in this directory.
 [tools]
-# Match the cluster: Talos 1.13 (last NVIDIA driver for the GTX 960), Kubernetes 1.36, Flux 2.9.
+# Match the cluster versions (Talos, Kubernetes, Flux); bump them together with the cluster upgrade.
 # Renovate only bumps patches for these three (see .github/custom.json5).
 talosctl = "1.13.11"
 kubectl = "1.36.5"
