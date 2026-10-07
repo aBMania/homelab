@@ -50,6 +50,15 @@ spec:
       gluetun-scripts:
         enabled: true
         data:
+          # gluetun control server (port 8000, reachable from the cluster) auth: only the
+          # read-only forwarded-port route used by the liveness probe is open; every other
+          # route (e.g. stopping the VPN) is denied. Newer gluetun denies all routes unless
+          # a role allows them.
+          auth.toml: |
+            [[roles]]
+            name = "liveness-probe"
+            routes = ["GET /v1/portforward"]
+            auth = "none"
           # Run by gluetun each time it gets a forwarded port: sets the port and
           # (re)applies the qBittorrent settings that keep the VPN tunnel stable.
           # Without limits/queueing, qBittorrent opens so many new connections
@@ -138,4 +147,5 @@ spec:
             SERVER_COUNTRIES: "${SERVER_COUNTRIES}"
             PORT_FORWARD_ONLY: "on"
             VPN_PORT_FORWARDING: "on"
+            HTTP_CONTROL_SERVER_AUTH_CONFIG_FILEPATH: "/scripts/auth.toml"
             VPN_PORT_FORWARDING_UP_COMMAND: "/bin/sh /scripts/qbt-up.sh {{`{{PORT}}`}}"
