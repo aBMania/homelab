@@ -32,6 +32,9 @@ spec:
       # Keep volume engines on the current engine image (needed before minor upgrades)
       concurrentAutomaticEngineUpgradePerNodeLimit: 1
       # v2DataEngine: true
+    # Longhorn >= 1.13: leader + warm standbys, default 3. Single node: 1 is enough
+    longhornGlobalManager:
+      replicas: 1
     persistence:
       # Set to false to pick another CSI as default
       defaultClass: true
