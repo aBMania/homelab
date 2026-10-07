@@ -1,0 +1,13 @@
+# Tools used in this repo. Run `mise install` once, then mise puts them on PATH in this directory.
+[tools]
+terraform = "1.16.5"
+sops = "3.13.3"
+
+[env]
+# Secrets for local tooling (e.g. CLOUDFLARE_API_TOKEN). The file is gitignored and never committed.
+_.file = { path = ".env", redact = true }
+SOPS_AGE_KEY_FILE = "{{config_root}}/age.agekey"
+
+[tasks.tf]
+description = "Terraform for Cloudflare DNS, with SOPS-encrypted state (e.g. `mise run tf plan`)"
+run = "scripts/tf.sh terraform/cloudflare"

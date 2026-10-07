@@ -112,6 +112,15 @@ CI (`.github/workflows/Tests.yaml`) runs kubeconform plus a `flux-local` diff on
 
 The `.devcontainer` (TrueCharts devcontainer) ships with flux, kubectl, talosctl, sops and the other needed tools.
 
+## DNS (Terraform)
+
+Public DNS for `DOMAIN_0` lives in Cloudflare and is managed by Terraform in `terraform/cloudflare/`. A wildcard `*.<domain>` CNAME points every app name at the apex, so **adding an ingress needs no DNS change**. The apex `A` record's IP is owned by the cloudflareddns app; Terraform ignores its content.
+
+- Tools come from `mise.toml`. Run `mise install` once. Secrets go in the gitignored `.env`, loaded by mise; see `.env.example`. It must set `CLOUDFLARE_API_TOKEN` and `TF_VAR_zone_name`.
+- **The domain name is private.** Never commit it in Terraform, manifests, commit messages or PR text. Use `var.zone_name` / `${DOMAIN_0}`.
+- State is committed **SOPS-encrypted** (`terraform.tfstate.sops.json`). Always run Terraform through the wrapper: `mise run tf plan` / `mise run tf apply`. It decrypts, runs and re-encrypts. Commit the updated `.sops.json` after an apply.
+- `.claude/settings.json` denies agents read access to `.env`, `*.tfvars` and `age.agekey`. Don't work around it.
+
 ## Automation
 
 - Renovate (`.github/renovate.json5` + `custom.json5`, extending the TrueCharts preset) opens `chore(flux): update ...` PRs every day before 06:00. Don't fight it: bump versions in the same places it does, and keep the `# renovate:` comments intact.
