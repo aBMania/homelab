@@ -9,6 +9,13 @@
   "prHourlyLimit": 2,
   "packageRules": [
     {
+      "description": ["CLI tools in mise.toml that must match the cluster versions: patch updates only (bump minors together with the Talos/Kubernetes/Flux upgrade)"],
+      "matchManagers": ["mise"],
+      "matchDepNames": ["talosctl", "kubectl", "flux2"],
+      "matchUpdateTypes": ["major", "minor"],
+      "enabled": false
+    },
+    {
       "description": ["Chart updates are reviewed by hand: newer TrueCharts charts can switch apps to root or to user namespaces, which break on Talos + NFS"],
       "matchManagers": ["flux"],
       "automerge": false

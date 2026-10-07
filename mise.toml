@@ -1,7 +1,19 @@
 # Tools used in this repo. Run `mise install` once, then mise puts them on PATH in this directory.
 [tools]
-terraform = "1.16.5"
+# Match the cluster: Talos 1.13 (last NVIDIA driver for the GTX 960), Kubernetes 1.36, Flux 2.9.
+# Renovate only bumps patches for these three (see .github/custom.json5).
+talosctl = "1.13.11"
+kubectl = "1.36.5"
+flux2 = "2.9.6"
+# Manifests and charts
+helm = "4.3.0"
+kustomize = "5.8.2"
+kubeconform = "0.8.0"
+yq = "4.54.1"
+# Secrets and DNS
 sops = "3.13.3"
+age = "1.3.2"
+terraform = "1.16.5"
 
 [env]
 # Secrets for local tooling (e.g. CLOUDFLARE_API_TOKEN). The file is gitignored and never committed.
@@ -11,3 +23,7 @@ SOPS_AGE_KEY_FILE = "{{config_root}}/age.agekey"
 [tasks.tf]
 description = "Terraform for Cloudflare DNS, with SOPS-encrypted state (e.g. `mise run tf plan`)"
 run = "scripts/tf.sh terraform/cloudflare"
+
+[tasks.validate]
+description = "Validate the Kubernetes manifests like CI does (kustomize + kubeconform)"
+run = "bash scripts/kubeconform.sh ./clusters/main/kubernetes"

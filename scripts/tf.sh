@@ -27,4 +27,9 @@ finish() {
 }
 trap finish EXIT
 
+# Fresh checkout: install providers first (pinned by .terraform.lock.hcl)
+if [ ! -d "$dir/.terraform" ] && [ "${1:-}" != "init" ]; then
+  terraform -chdir="$dir" init -input=false >/dev/null
+fi
+
 terraform -chdir="$dir" "$@"
