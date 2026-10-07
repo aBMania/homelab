@@ -6,6 +6,8 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 STATE=.state/quiesce.json
 log() { echo "node-up: $*" >&2; }
+# Right after a reboot, admission webhooks (e.g. CNPG's) may not be reachable yet: retry for up to 5 min
+retry() { for i in $(seq 1 30); do "$@" >/dev/null 2>&1 </dev/null && return 0; sleep 10; done; log "FAILED after retries: $*"; return 1; }
 for t in kubectl jq flux; do command -v $t >/dev/null || { log "missing $t (run via mise)"; exit 2; }; done
 [ -f "$STATE" ] || { log "no $STATE: nothing to restore"; exit 2; }
 state=$(cat "$STATE")
@@ -22,9 +24,9 @@ log "node ready and uncordoned"
 echo "$state" | jq -c '.targets[]' | while read -r t; do
   kind=$(echo "$t" | jq -r .kind); ns=$(echo "$t" | jq -r .ns); name=$(echo "$t" | jq -r .name); r=$(echo "$t" | jq -r '.replicas // empty')
   case "$kind" in
-    cnpg) kubectl -n "$ns" annotate cluster.postgresql.cnpg.io "$name" cnpg.io/hibernation=off --overwrite >/dev/null 2>&1 </dev/null;;
-    Deployment) kubectl -n "$ns" scale deploy "$name" --replicas="$r" >/dev/null </dev/null;;
-    StatefulSet) kubectl -n "$ns" scale sts "$name" --replicas="$r" >/dev/null </dev/null;;
+    cnpg) retry kubectl -n "$ns" annotate cluster.postgresql.cnpg.io "$name" cnpg.io/hibernation=off --overwrite;;
+    Deployment) retry kubectl -n "$ns" scale deploy "$name" --replicas="$r";;
+    StatefulSet) retry kubectl -n "$ns" scale sts "$name" --replicas="$r";;
     CronJob) [ "$(echo "$t" | jq -r .was_suspended)" = true ] || kubectl -n "$ns" patch cronjob "$name" --type merge -p '{"spec":{"suspend":false}}' >/dev/null </dev/null;;
   esac
 done
@@ -49,6 +51,8 @@ for i in $(seq 1 90); do
   bad=$(kubectl get pods -A --no-headers 2>/dev/null | awk '$4!="Running" && $4!="Completed" && $4!="Succeeded"' | wc -l)
   [ "$bad" -eq 0 ] && break
   # Longhorn CSI pods left in Error by the reboot are stale leftovers
+  # Pods rejected at admission right after boot (e.g. GPU plugin not ready yet) are replaced by new ones
+  kubectl get pods -A -o json 2>/dev/null | jq -r '.items[] | select(.status.phase=="Failed" and .status.reason=="UnexpectedAdmissionError") | "\(.metadata.namespace) \(.metadata.name)"' | while read -r ns p; do kubectl -n "$ns" delete pod "$p" --wait=false >/dev/null 2>&1 </dev/null; done
   kubectl get pods -n longhorn-system --no-headers 2>/dev/null | awk '$3=="Error" && $1 ~ /^csi-/{print $1}' | xargs -r kubectl -n longhorn-system delete pod --wait=false >/dev/null 2>&1
   sleep 10
 done
