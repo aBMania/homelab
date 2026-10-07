@@ -5,6 +5,8 @@
 talosctl = "1.13.11"
 kubectl = "1.36.5"
 flux2 = "2.9.6"
+talhelper = "3.1.17"
+k9s = "0.51.0"
 # Manifests and charts
 helm = "4.3.0"
 kustomize = "5.8.2"
@@ -27,3 +29,43 @@ run = "scripts/tf.sh terraform/cloudflare"
 [tasks.validate]
 description = "Validate the Kubernetes manifests like CI does (kustomize + kubeconform)"
 run = "bash scripts/kubeconform.sh ./clusters/main/kubernetes"
+
+[tasks."talos:genconfig"]
+description = "Generate the Talos machine config + talosconfig from clusters/main/talos (talhelper, secrets decrypted in memory)"
+dir = "clusters/main/talos"
+env = { CLUSTERNAME = "main" }
+run = "talhelper genconfig --config-file talconfig.yaml --env-file ../clusterenv.yaml --secret-file generated/talsecret.yaml --out-dir generated"
+
+[tasks."talos:diff"]
+description = "Dry-run the generated config against the live node (shows what would change, applies nothing)"
+depends = ["talos:genconfig"]
+run = "talosctl --talosconfig clusters/main/talos/generated/talosconfig apply-config --dry-run --file clusters/main/talos/generated/main-k8s-control-1.yaml"
+
+[tasks."talos:apply"]
+description = "Apply the generated machine config to the node (run talos:diff first; may reboot the node)"
+depends = ["talos:genconfig"]
+run = "talosctl --talosconfig clusters/main/talos/generated/talosconfig apply-config --file clusters/main/talos/generated/main-k8s-control-1.yaml"
+
+[tasks."talos:backup"]
+description = "Save the node's live machine config, SOPS-encrypted, under clusters/main/talos/backup/"
+run = "scripts/talos-backup.sh"
+
+[tasks."talos:health"]
+description = "Talos/Kubernetes health check"
+run = "talosctl --talosconfig clusters/main/talos/generated/talosconfig health"
+
+[tasks."talos:kubeconfig"]
+description = "Write a fresh admin kubeconfig to ~/.kube/config (the client cert lasts one year)"
+run = "talosctl --talosconfig clusters/main/talos/generated/talosconfig kubeconfig --force ~/.kube/config"
+
+[tasks."sops:check"]
+description = "Fail if a file that .sops.yaml says must be encrypted is not (all tracked files; --staged for the git hook)"
+run = "scripts/sops-check.sh"
+
+[tasks."hooks:install"]
+description = "Install the git pre-commit hook (refuses unencrypted secrets)"
+run = "printf '#!/bin/sh\\nexec mise run sops:check --staged\\n' > \"$(git rev-parse --git-common-dir)/hooks/pre-commit\" && chmod +x \"$(git rev-parse --git-common-dir)/hooks/pre-commit\""
+
+[tasks."cluster:bootstrap"]
+description = "Disaster recovery: install Cilium + Flux on a fresh cluster and hand over to git (--dry-run to test)"
+run = "scripts/bootstrap.sh"

@@ -1,12 +1,10 @@
-- op: add
-  path: /machine/kernel
-  value:
+# Talos machine config patch (strategic merge). Merged into the generated config by talhelper.
+machine:
+  kernel:
     modules:
-      - "name": "nvidia"
-      - "name": "nvidia_uvm"
-      - "name": "nvidia_drm"
-      - "name": "nvidia_modeset"
-- op: add
-  path: /machine/sysctls
-  value:
-    "net.core.bpf_jit_harden": 1
+    - name: nvidia
+    - name: nvidia_uvm
+    - name: nvidia_drm
+    - name: nvidia_modeset
+  sysctls:
+    net.core.bpf_jit_harden: 1

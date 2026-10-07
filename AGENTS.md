@@ -4,9 +4,9 @@ Guidance for AI coding agents working in this repository.
 
 ## What this repo is
 
-A GitOps homelab: a single-node [Talos](https://www.talos.dev/) Kubernetes cluster (`k8s-control-1`, a VM on TrueNAS with an NVIDIA GPU), managed with [FluxCD](https://fluxcd.io/) and bootstrapped with TrueCharts' `clustertool`. Everything merged to `main` gets reconciled into the live cluster, so **every change to `clusters/` or `repositories/` is a production deploy**.
+A GitOps homelab: a single-node [Talos](https://www.talos.dev/) Kubernetes cluster (`k8s-control-1`, a VM on TrueNAS with an NVIDIA GPU), managed with [FluxCD](https://fluxcd.io/) bootstrapped originally with TrueCharts' clustertool, which has since been replaced by mise tasks. Everything merged to `main` gets reconciled into the live cluster, so **every change to `clusters/` or `repositories/` is a production deploy**.
 
-The two root Kustomizations, `flux-entry` (`clusters/main/kubernetes/flux-entry.yaml`) and `flux-entry-repos` (`repositories/flux-entry.yaml`), are **not applied by Flux itself**: clustertool's bootstrap creates them. If you change either file, also run `kubectl apply -f clusters/main/kubernetes/flux-entry.yaml -f repositories/flux-entry.yaml` after merging. Otherwise the live objects keep the old spec, and Flux can get stuck.
+The two root Kustomizations, `flux-entry` (`clusters/main/kubernetes/flux-entry.yaml`) and `flux-entry-repos` (`repositories/flux-entry.yaml`), are **not applied by Flux itself**: `mise run cluster:bootstrap` creates them. If you change either file, also run `kubectl apply -f clusters/main/kubernetes/flux-entry.yaml -f repositories/flux-entry.yaml` after merging. Otherwise the live objects keep the old spec, and Flux can get stuck.
 
 The Flux `GitRepository` (`repositories/git/this-repo.yaml`) only watches `/clusters` and `/repositories`. Changes anywhere else never reach the cluster.
 
@@ -18,7 +18,9 @@ clusters/main/
   talos/
     talconfig.yaml           # talhelper config for the node (Talos + k8s versions, extensions)
     patches/                 # Talos machine-config patches
-    generated/               # clustertool output; only talsecret.yaml (encrypted) is tracked
+    patches/                 # Talos machine-config patches (strategic merge)
+    backup/                  # SOPS-encrypted copy of the live machine config (mise run talos:backup)
+    generated/               # talhelper output; only talsecret.yaml (encrypted) is tracked
   kubernetes/
     flux-entry.yaml          # root Flux Kustomization -> ./clusters/main/kubernetes
     kustomization.yaml       # lists the top-level groups below
@@ -35,10 +37,10 @@ repositories/
   helm/                      # HelmRepository sources (truecharts, bjw-s, fait-maison, …)
   git/, oci/                 # other Flux sources
 scripts/kubeconform.sh       # validation used by CI
-.sops.yaml                   # encryption rules (managed by clustertool, see below)
+.sops.yaml                   # encryption rules
 ```
 
-`clustertool` (the binary at the repo root) and `age.agekey` are gitignored local files. Never commit, print, or copy the contents of `age.agekey`.
+`age.agekey` is a gitignored local file (backed up off-machine by the user). Never commit, print, or copy the contents of `age.agekey`.
 
 ## Adding or changing an app
 
@@ -72,7 +74,7 @@ HelmRelease conventions:
 ## Variables and secrets
 
 - `${VAR}` placeholders are substituted by Flux `postBuild.substituteFrom` from the `cluster-config` ConfigMap, which is generated from `clusters/main/clusterenv.yaml`. Available keys include `DOMAIN_0`, `NFS_HOST`, `VIP`, `TRAEFIK_IP`, `BLOCKY_IP`, `PODNET`, `SVCNET`, plus a variety of credentials. To use a new value, add it to `clusterenv.yaml` (that requires decrypting it, so ask the user).
-- `cluster-config` is a **Secret**, not the ConfigMap clustertool's template generates: it holds passwords and tokens. If you ever re-run `clustertool genconfig`, convert it back and keep `substituteFrom: kind: Secret` in both `flux-entry.yaml` files.
+- `cluster-config` is a **Secret** (it holds passwords and tokens), referenced with `substituteFrom: kind: Secret` in both `flux-entry.yaml` files.
 - Substitution applies to every Flux Kustomization. To opt one out, label it `substitution.flux.home.arpa/disabled: "true"`. If a manifest needs a literal `${...}`, escape it as `$${...}`.
 - SOPS (age) encrypts:
   - any `*values.yaml` under `clusters/**/kubernetes/`
@@ -81,8 +83,7 @@ HelmRelease conventions:
   
   Only keys that match the `encrypted_regex` in `.sops.yaml` get encrypted (`pass`, `secret`, `key`, `token`, `email`, `data`, `stringData`, …).
 - **Never commit plaintext secrets** and never hand-edit `ENC[...]` blobs. Put secrets in a `*.secret.yaml` file and encrypt it with `sops -e -i <file>`, or reference a `clusterenv.yaml` variable. If you can't encrypt, stop and ask.
-- Don't edit `.sops.yaml` above the `## DO NOT REMOVE` line, because clustertool manages that section.
-- `*.yaml.ct` files (for example the Cilium bootstrap values) are clustertool templates rendered from `clusterenv.yaml`. Don't hand-edit them.
+- `mise run sops:check` (also the pre-commit hook) fails if a file matching `.sops.yaml` is not encrypted.
 
 ## Single-node gotchas
 
@@ -95,10 +96,20 @@ If a HelmRelease shows `Stalled` / `RetriesExceeded`, Flux has stopped retrying 
 
 ## Talos / node
 
-- Node config lives in `clusters/main/talos/talconfig.yaml` and `patches/`. Changes there are applied manually with clustertool (`clustertool genconfig`, `clustertool apply`), not by Flux.
-- Talos and Kubernetes versions are pinned in `talconfig.yaml` with Renovate comments. Upgrades run through system-upgrade-controller plans in `core/system-upgrade-controller-plans/`. Major bumps are deliberately not automerged.
-- `talconfig.json` is only a JSON schema for editor support.
-- The admin kubeconfig client certificate expires after a year. If `kubectl` says "the server has asked for the client to provide credentials", generate a new one with `talosctl --talosconfig clusters/main/talos/generated/talosconfig -n <node-ip> kubeconfig <path>`. Talos itself is reachable with that talosconfig.
+- Node config lives in `clusters/main/talos/talconfig.yaml` and `patches/` (strategic-merge patches; Talos 1.13 configs are multi-document, so JSON6902 `op/path` patches no longer work). Variables come from `clusters/main/clusterenv.yaml`.
+- `mise run talos:genconfig` generates the machine config + `talosconfig` with talhelper (secrets decrypted in memory). `mise run talos:diff` dry-runs it against the live node; **always diff before `mise run talos:apply`**, which may reboot the node. The generated config currently only differs from the live node in format (Talos 1.13 multi-doc network), so applying it means a reboot.
+- `mise run talos:backup` refreshes the encrypted live-config copy in `talos/backup/`. Run it after any change to the node.
+- Talos and Kubernetes versions are pinned in `talconfig.yaml` and `flux-system/flux/upgradesettings.yaml`. Upgrades run through system-upgrade-controller plans in `core/system-upgrade-controller-plans/`. Major bumps are deliberately not automerged.
+- The admin kubeconfig client certificate expires after a year: `mise run talos:kubeconfig`.
+
+## Disaster recovery
+
+Rebuilding the node from scratch (needs `age.agekey` from its backup):
+
+1. Boot the Talos ISO for the version in `talconfig.yaml` (factory.talos.dev, same schematic).
+2. `mise run talos:genconfig`, then `talosctl apply-config --insecure -n <node-ip> --file clusters/main/talos/generated/main-k8s-control-1.yaml`.
+3. `talosctl --talosconfig clusters/main/talos/generated/talosconfig bootstrap`, then `mise run talos:kubeconfig`.
+4. `mise run cluster:bootstrap` installs Cilium and Flux and applies the secrets and the root Kustomizations. Flux rebuilds everything else. `--dry-run` tests it against a running cluster without changing anything.
 
 ## Validation
 
@@ -111,7 +122,7 @@ bash ./scripts/kubeconform.sh ./clusters/main/kubernetes   # needs kustomize + k
 kustomize build clusters/main/kubernetes/<group>/<app>/app  # quick check for one app
 ```
 
-A local git pre-commit hook (`.git/hooks/pre-commit`) runs `./clustertool adv precommit`, which refuses to commit unencrypted secrets. Don't bypass it with `--no-verify`. If it fails, fix the cause.
+A local git pre-commit hook (installed with `mise run hooks:install`) runs `mise run sops:check --staged`, which refuses to commit unencrypted secrets. Don't bypass it with `--no-verify`. If it fails, fix the cause.
 
 CI (`.github/workflows/Tests.yaml`) runs kubeconform plus a `flux-local` diff on PRs that touch `clusters/main/kubernetes/**`. The automerge jobs (`pascalgn/automerge-action`) only squash-merge PRs that pass **and** carry the `automerge` label. Never add that label without the user's approval, because merging to `main` deploys.
 
@@ -139,6 +150,6 @@ Public DNS for `DOMAIN_0` lives in Cloudflare and is managed by Terraform in `te
 
 ## Don'ts
 
-- Don't run `kubectl apply`, `flux reconcile`, `clustertool apply`, or `talosctl` against the live cluster unless the user explicitly asks. Git is the source of truth.
+- Don't run `kubectl apply`, `flux reconcile`, `mise run talos:apply`, or `talosctl` against the live cluster unless the user explicitly asks. Git is the source of truth.
 - Don't delete an app folder or a `ks.yaml` entry casually. `prune: true` removes the workload, and possibly its PVCs, from the cluster.
-- Don't touch `flux-system/flux/*.secret.yaml`, `talos/generated/`, or the bootstrap `.ct` files without being asked.
+- Don't touch `flux-system/flux/*.secret.yaml`, or `talos/generated/` without being asked.
