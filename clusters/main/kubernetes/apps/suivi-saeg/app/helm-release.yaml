@@ -9,7 +9,7 @@ spec:
     spec:
       # renovate: registryUrl=oci://ghcr.io/fait-maison/helm
       chart: suivi-saeg
-      version: 0.0.1
+      version: 0.0.2
       sourceRef:
         kind: HelmRepository
         name: fait-maison
