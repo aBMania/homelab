@@ -145,7 +145,7 @@ Public DNS for `DOMAIN_0` lives in Cloudflare and is managed by Terraform in `te
   2. Upgrade to the *current* version with a slim schematic (no NVIDIA).
   3. Upgrade to the target with the NVIDIA schematic.
 - The node boots with GRUB and `grubUseUKICmdline: false`, so the SUC talos plan passes `--legacy` (Talos ≥ 1.13 would otherwise drop `net.ifnames=0`). Moving to the UKI cmdline is a deliberate, separate change.
-- **The GTX 960 (Maxwell) needs NVIDIA driver 580, the last branch supporting it, and Talos 1.13 is the last Talos shipping it.** Don't go past Talos 1.13 without a GPU change. `mise.toml` pins talosctl/kubectl/flux to the cluster versions for the same reason.
+- **The GTX 960 (Maxwell) needs the NVIDIA 580 driver branch**, the last one supporting it. NVIDIA supports 580 as a long-term branch until 2028-08. Talos ships it as the `nonfree-kmod-nvidia-lts` / `nvidia-container-toolkit-lts` extensions (580.x on Talos 1.13, 1.14 and `main`, see `nvidia_driver_lts_version` in siderolabs/pkgs `Pkgfile`). **Before every Talos upgrade, check that the target version's `-lts` extensions are still 580.x** (factory.talos.dev/version/<v>/extensions/official). If Sidero moves `lts` to a newer branch, the GPU stops working. The fallback is the CPU's Intel UHD 730 (Quick Sync) passed through instead. `mise.toml` pins talosctl/kubectl/flux to the cluster versions, so they move together with the cluster.
 - Take an etcd snapshot first (`talosctl etcd snapshot`) and a ZFS snapshot of the VM disk on TrueNAS.
 
 **GPU**
