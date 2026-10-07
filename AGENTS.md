@@ -6,6 +6,8 @@ Guidance for AI coding agents working in this repository.
 
 A GitOps homelab: a single-node [Talos](https://www.talos.dev/) Kubernetes cluster (`k8s-control-1`, a VM on TrueNAS with an NVIDIA GPU), managed with [FluxCD](https://fluxcd.io/) and bootstrapped with TrueCharts' `clustertool`. Everything merged to `main` gets reconciled into the live cluster, so **every change to `clusters/` or `repositories/` is a production deploy**.
 
+The two root Kustomizations, `flux-entry` (`clusters/main/kubernetes/flux-entry.yaml`) and `flux-entry-repos` (`repositories/flux-entry.yaml`), are **not applied by Flux itself**: clustertool's bootstrap creates them. If you change either file, also run `kubectl apply -f clusters/main/kubernetes/flux-entry.yaml -f repositories/flux-entry.yaml` after merging. Otherwise the live objects keep the old spec, and Flux can get stuck.
+
 The Flux `GitRepository` (`repositories/git/this-repo.yaml`) only watches `/clusters` and `/repositories`. Changes anywhere else never reach the cluster.
 
 ## Layout
