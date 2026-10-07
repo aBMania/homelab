@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/.env)",
+      "Read(./**/*.tfvars)",
+      "Read(./age.agekey)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(./age.agekey)",
+      "Bash(cat .env*)",
+      "Bash(cat ./.env*)",
+      "Bash(cat age.agekey)",
+      "Bash(env)",
+      "Bash(printenv*)",
+      "Bash(sops -d *)",
+      "Bash(sops --decrypt *)"
+    ]
+  }
+}

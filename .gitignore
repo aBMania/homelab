@@ -10,3 +10,14 @@ sopssecret*
 *sopssecret*
 mounts/
 .idea/
+# Local secrets (loaded by mise), see .env.example
+.env
+.env.*
+!.env.example
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+!*.tfstate.sops.json
+*.tfvars
+crash.log
