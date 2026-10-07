@@ -1,0 +1,6 @@
+# Talos machine config patch (strategic merge). Merged into the generated config by talhelper.
+machine:
+  time:
+    disabled: false
+    servers:
+    - time.cloudflare.com

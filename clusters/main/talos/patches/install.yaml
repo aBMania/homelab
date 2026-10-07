@@ -1,0 +1,8 @@
+# Talos machine config patch (strategic merge). Merged into the generated config by talhelper.
+# Keep the boot setup the node runs today: kernel args from the machine config, not the UKI cmdline.
+# Moving to grubUseUKICmdline: true is a deliberate change (then drop --legacy in the SUC talos plan).
+machine:
+  install:
+    grubUseUKICmdline: false
+    extraKernelArgs:
+    - net.ifnames=0

@@ -13,3 +13,5 @@ creation_rules:
 ## DO NOT REMOVE: Personal setting go under this line
   - path_regex: terraform/.*terraform\.tfstate(\.sops\.json)?$
     age: age1eua6khdgdqv4p8zhxhjzv94ylftmj6lr0jcz4eu2fjyghgpg5fdsldalh2
+  - path_regex: clusters/.*/talos/backup/.*\.sops\.yaml$
+    age: age1eua6khdgdqv4p8zhxhjzv94ylftmj6lr0jcz4eu2fjyghgpg5fdsldalh2
