@@ -137,6 +137,46 @@ Public DNS for `DOMAIN_0` lives in Cloudflare and is managed by Terraform in `te
 - State is committed **SOPS-encrypted** (`terraform.tfstate.sops.json`). Always run Terraform through the wrapper: `mise run tf plan` / `mise run tf apply`. It decrypts, runs and re-encrypts. Commit the updated `.sops.json` after an apply.
 - `.claude/settings.json` denies agents read access to `.env`, `*.tfvars` and `age.agekey`. Don't work around it.
 
+## Operations notes (lessons from the 2026-10 upgrades)
+
+**Talos upgrades**
+- The BOOT partition is only 1000 MB (old 1.9-era layout) and can't hold two NVIDIA-sized images. A plain upgrade fails with `write /boot/B/vmlinuz: no space left on device`. Use the **two-hop** trick:
+  1. Delete the stale files of the inactive boot slot.
+  2. Upgrade to the *current* version with a slim schematic (no NVIDIA).
+  3. Upgrade to the target with the NVIDIA schematic.
+- The node boots with GRUB and `grubUseUKICmdline: false`, so the SUC talos plan passes `--legacy` (Talos ≥ 1.13 would otherwise drop `net.ifnames=0`). Moving to the UKI cmdline is a deliberate, separate change.
+- **The GTX 960 (Maxwell) needs NVIDIA driver 580, the last branch supporting it, and Talos 1.13 is the last Talos shipping it.** Don't go past Talos 1.13 without a GPU change. `mise.toml` pins talosctl/kubectl/flux to the cluster versions for the same reason.
+- Take an etcd snapshot first (`talosctl etcd snapshot`) and a ZFS snapshot of the VM disk on TrueNAS.
+
+**GPU**
+- NVIDIA runs through Talos extensions (`nonfree-kmod-nvidia-lts`, `nvidia-container-toolkit-lts`) plus **gpu-operator** in `core/gpu-operator`. The driver and toolkit are disabled there, and CDI is on.
+- **Time-slicing gives 5 `nvidia.com/gpu` slots.** Pods request `nvidia.com/gpu: 1` with `runtimeClassName: nvidia`. The CUDA validation workload is off because CUDA 13 dropped Maxwell.
+
+**Shutting the node down safely (TrueNAS reboot, maintenance)**
+- `talosctl shutdown` stops pods in parallel. Longhorn can go away while Postgres is still writing: I/O errors, then a crash-recovery.
+- Before a planned shutdown:
+  1. Suspend Flux.
+  2. Set `cnpg.io/hibernation=on` on the CNPG clusters.
+  3. Scale the other Longhorn consumers to 0.
+  4. Wait until **all Longhorn volumes are `detached`**, then shut down.
+- Afterwards:
+  1. Uncordon the node.
+  2. Set hibernation to **`off`** (removing the annotation is not enough).
+  3. Restore the replica counts and resume Flux.
+
+**Longhorn**
+- `concurrentAutomaticEngineUpgradePerNodeLimit` must stay > 0, so volume engines follow the manager. Before a minor Longhorn upgrade, check that every volume runs the current engine image.
+
+**TrueCharts charts**
+- Newer `common` versions set `hostUsers: false` on k8s ≥ 1.33. Talos has user namespaces disabled, so pods fail with ENOSPC on `unshare`. Set `podOptions.hostUsers: true`.
+- Some newer charts run as root, but NFS squashes root, so file ownership and plugin updates break. Set `securityContext.container.runAsUser/runAsGroup: 568` (the TrueNAS `apps` user).
+- Several TrueCharts system charts are archived (cert-manager, cloudnative-pg, traefik). cert-manager and CNPG now use the upstream charts.
+
+**TrueNAS host**
+- The node is the `talos` VM (UEFI, autostart, zvol `tank/talos`). The GPU is isolated and passed through with vfio-pci. TrueNAS 25.10 dropped host NVIDIA support for Maxwell, which doesn't matter for passthrough.
+- After a TrueNAS major upgrade, wait about a week before "Upgrade pool" (ZFS feature flags). Boot-environment rollback depends on it.
+- Download the config backup (with the secret seed) before upgrading.
+
 ## Automation
 
 - Renovate (`.github/renovate.json5` + `custom.json5`, extending the TrueCharts preset) opens `chore(flux): update ...` PRs every day before 06:00. Don't fight it: bump versions in the same places it does, and keep the `# renovate:` comments intact.

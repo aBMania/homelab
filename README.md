@@ -1,18 +1,11 @@
 # Homelab
 
-This repository manage a [TalosOS](https://www.talos.dev/) VM that runs in my [TrueNAS](https://www.truenas.com/) Home NAS.
+GitOps for a single-node [Talos](https://www.talos.dev/) Kubernetes cluster running as a VM on my [TrueNAS](https://www.truenas.com/) NAS (with an NVIDIA GPU passed through).
 
-Key informations:
-- Setup of the TalosOS VM lives in `cluster/main/talos`
-- Setup of Kubernetes and all applications lives in `cluster/main/kubernetes`
-- Everything is automatically deployed using [FluxCD](https://fluxcd.io/)
-- Everything is automatically kept up to date using [Renovate](https://docs.renovatebot.com/)
+- Talos node config: `clusters/main/talos` (talhelper, see `mise run talos:genconfig`)
+- Kubernetes and all apps: `clusters/main/kubernetes`, deployed by [FluxCD](https://fluxcd.io/)
+- Public DNS: `terraform/cloudflare` (Terraform, SOPS-encrypted state)
+- Updates: [Renovate](https://docs.renovatebot.com/) opens PRs, reviewed and merged by hand for anything risky
+- Tools: `mise install`, then `mise tasks` lists the helpers (validate, talos:*, tf, cluster:bootstrap, sops:check)
 
-### Side notes
-
-Due to problems at setup time, I had to run these additional steps after flux setup:
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/crd/bases/metallb.io_ipaddresspools.yaml
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/crd/bases/metallb.io_l2advertisements.yaml
-```
+[AGENTS.md](AGENTS.md) is the detailed guide: layout, conventions, secrets, operations notes and disaster recovery.
