@@ -25,9 +25,16 @@ spec:
         remediation:
             retries: 3
     values:
-      cloudflareddns:
-        api_token: ${DOMAIN_0_CLOUDFLARE_TOKEN}
-        host_zone_record:
-        - domain: ${DOMAIN_0}
-          record: A
-          zone: ${DOMAIN_0}
+      # Chart >= 14 (containerforge image) is configured with plain env vars; the old
+      # cloudflareddns.api_token/host_zone_record values are ignored.
+      workload:
+        main:
+          podSpec:
+            containers:
+              main:
+                env:
+                  CF_APITOKEN: ${DOMAIN_0_CLOUDFLARE_TOKEN}
+                  # Only the apex A record (app hostnames are a Terraform-managed wildcard CNAME to it)
+                  CF_HOSTS: ${DOMAIN_0}
+                  UPDATE_IPV4: true
+                  UPDATE_IPV6: false
