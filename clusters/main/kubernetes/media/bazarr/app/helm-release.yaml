@@ -20,11 +20,25 @@ spec:
         crds: CreateReplace
         remediation:
             retries: 3
+    # bazarr's first start after a major update (DB migration, SQLite on NFS) can exceed the
+    # default 5m; a rollback then leaves an old version that can't read the migrated DB.
+    timeout: 20m
     upgrade:
         crds: CreateReplace
         remediation:
             retries: 3
+            remediateLastFailure: false
     values:
+      workload:
+        main:
+          podSpec:
+            containers:
+              main:
+                probes:
+                  startup:
+                    spec:
+                      timeoutSeconds: 10
+                      failureThreshold: 180
       ingress:
         main:
           enabled: true
