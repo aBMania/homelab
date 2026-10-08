@@ -9,6 +9,18 @@
   "prHourlyLimit": 2,
   "packageRules": [
     {
+      "description": ["Talos/Kubernetes/Flux version bumps are cluster upgrades: never automerge. Override the preset's labels, because the 'automerge' label alone makes the GitHub automerge workflow merge the PR (that's how kubelet 1.37 went live unreviewed on 2026-10-08)"],
+      "matchPackageNames": ["ghcr.io/siderolabs/kubelet", "ghcr.io/siderolabs/installer", "ghcr.io/siderolabs/talosctl", "registry.k8s.io/kubectl", "ghcr.io/fluxcd/flux-manifests"],
+      "matchUpdateTypes": ["major", "minor"],
+      "automerge": false,
+      "labels": ["system-upgrade", "manual-review"]
+    },
+    {
+      "description": ["veggie-planner 0.2.x needs the veggie-planner-api image, which isn't published on ghcr.io yet"],
+      "matchPackageNames": ["veggie-planner"],
+      "allowedVersions": "<0.2.0"
+    },
+    {
       "description": ["CLI tools in mise.toml that must match the cluster versions: patch updates only (bump minors together with the Talos/Kubernetes/Flux upgrade)"],
       "matchManagers": ["mise"],
       "matchDepNames": ["talosctl", "kubectl", "flux2"],
