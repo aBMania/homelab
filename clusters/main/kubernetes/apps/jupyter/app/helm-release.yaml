@@ -44,6 +44,20 @@ spec:
               paths:
                 - path: /
                   pathType: Prefix
+      # Run the whole container as the notebook user (568), not root. The image's start script
+      # only needs root to switch users; jupyter-lab already ran as 568. /home/jovyan is
+      # group-writable for "users" (100), hence the supplemental group.
+      securityContext:
+        container:
+          runAsUser: 568
+          runAsGroup: 568
+          runAsNonRoot: true
+          capabilities:
+            add: []
+        pod:
+          supplementalGroups:
+            - 100
+            - 568
       persistence:
         data:
           type: nfs
