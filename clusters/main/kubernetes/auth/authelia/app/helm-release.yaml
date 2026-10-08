@@ -98,11 +98,17 @@ spec:
               - 192.168.0.0/16
         # First matching rule wins
         rules:
-          # Jupyter (runs as non-root since #949/#950): password only for the science group.
-          # Admins fall through to the admin rules below (password at home, TOTP from outside).
+          # Jupyter (runs code): science group password-only at home, password + TOTP from outside.
+          # Admins fall through to the admin rules below (same split).
           - domain:
               - "science.${DOMAIN_0}"
             policy: one_factor
+            subject: group:science
+            networks:
+              - lan
+          - domain:
+              - "science.${DOMAIN_0}"
+            policy: two_factor
             subject: group:science
           # Family: password only, media request/subtitle apps
           - domain:
