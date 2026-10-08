@@ -1,5 +1,9 @@
 clusterName: ${CLUSTERNAME}
 # renovate: datasource=docker depName=ghcr.io/siderolabs/installer
+# Config *contract* version for talhelper, not the installed Talos version (that one is TALOS_VERSION in
+# flux-system/flux/upgradesettings.yaml, currently v1.14.2). Talos 1.14 accepts this 1.13-style config.
+# Moving to v1.14 here makes talhelper emit the new multi-document Kube*/Resolver configs, which conflict
+# with patches/{controlplane,network}.yaml: migrate those patches first (separate task).
 talosVersion: v1.13.11
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
 kubernetesVersion: v1.36.5
