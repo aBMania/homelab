@@ -9,7 +9,7 @@ spec:
   chart:
     spec:
       chart: kubernetes-reflector
-      version: 6.5.13
+      version: 9.10.0
       sourceRef:
         kind: HelmRepository
         name: truecharts
@@ -29,3 +29,8 @@ spec:
       retries: 3
   uninstall:
     keepHistory: false
+  values:
+    podOptions:
+      # Newer TrueCharts common defaults to user namespaces (hostUsers: false), which Talos
+      # disables (user.max_user_namespaces=0): pods would fail with ENOSPC on unshare
+      hostUsers: true
