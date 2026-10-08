@@ -124,7 +124,7 @@ kustomize build clusters/main/kubernetes/<group>/<app>/app  # quick check for on
 
 A local git pre-commit hook (installed with `mise run hooks:install`) runs `mise run sops:check --staged`, which refuses to commit unencrypted secrets. Don't bypass it with `--no-verify`. If it fails, fix the cause.
 
-CI (`.github/workflows/Tests.yaml`) runs kubeconform plus a `flux-local` diff on PRs that touch `clusters/main/kubernetes/**`. The automerge jobs (`pascalgn/automerge-action`) only squash-merge PRs that pass **and** carry the `automerge` label. Never add that label without the user's approval, because merging to `main` deploys.
+CI (`.github/workflows/Tests.yaml`) runs kubeconform plus a `flux-local` diff on **every** PR. `main` is protected by the ruleset `protect-main`: changes go through a PR, the `Kubeconform` check must pass, and force-pushes or deletion are blocked (repo admins can bypass in an emergency). The automerge jobs (`pascalgn/automerge-action`) only squash-merge PRs that pass **and** carry the `automerge` label. Never add that label without the user's approval, because merging to `main` deploys.
 
 The `.devcontainer` (TrueCharts devcontainer) ships with flux, kubectl, talosctl, sops and the other needed tools.
 
