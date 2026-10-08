@@ -6,7 +6,7 @@ clusterName: ${CLUSTERNAME}
 # with patches/{controlplane,network}.yaml: migrate those patches first (separate task).
 talosVersion: v1.13.11
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
-kubernetesVersion: v1.36.5
+kubernetesVersion: v1.37.1
 endpoint: https://${VIP}:6443
 allowSchedulingOnControlPlanes: true
 additionalMachineCertSans:
