@@ -59,6 +59,9 @@ spec:
             name = "liveness-probe"
             routes = ["GET /v1/portforward"]
             auth = "none"
+          # Share limits (public trackers only): a torrent is removed WITH its files at ratio 2
+          # or after 1 year of seeding (525600 min; max_ratio_act 3 = remove torrent + content).
+          # Imported media stays in the library (hardlinks), only the torrent copy goes.
           # Run by gluetun each time it gets a forwarded port: sets the port and
           # (re)applies the qBittorrent settings that keep the VPN tunnel stable.
           # Without limits/queueing, qBittorrent opens so many new connections
@@ -75,7 +78,10 @@ spec:
               "limit_tcp_overhead": true,
               "queueing_enabled": true, "max_active_downloads": 10,
               "max_active_uploads": 25, "max_active_torrents": 35,
-              "dont_count_slow_torrents": false
+              "dont_count_slow_torrents": false,
+              "max_ratio_enabled": true, "max_ratio": 2,
+              "max_seeding_time_enabled": true, "max_seeding_time": 525600,
+              "max_ratio_act": 3
             }
             EOF
             wget -qO- --retry-connrefused --tries=30 \
