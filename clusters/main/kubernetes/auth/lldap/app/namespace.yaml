@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
     name: lldap
     labels:
-      pod-security.kubernetes.io/enforce: privileged
+      pod-security.kubernetes.io/enforce: baseline

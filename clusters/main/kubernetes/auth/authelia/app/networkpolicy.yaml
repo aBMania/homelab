@@ -1,0 +1,81 @@
+---
+# Default: nothing may connect to pods in this namespace (the node itself, e.g. kubelet probes,
+# is always allowed by Cilium). Then only the traffic Authelia needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: authelia
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# Traefik -> Authelia (ingress + forwardAuth checks)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authelia-from-traefik
+  namespace: authelia
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: authelia
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 9091
+---
+# Authelia -> its session store
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-from-authelia
+  namespace: authelia
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authelia
+      ports:
+        - port: 6379
+---
+# Postgres: Authelia + replication between instances + the CNPG operator (status port 8000)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  namespace: authelia
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: authelia-cnpg-main
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authelia
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: authelia-cnpg-main
+      ports:
+        - port: 5432
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudnative-pg
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: authelia-cnpg-main
+      ports:
+        - port: 5432
+        - port: 8000
