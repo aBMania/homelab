@@ -10,7 +10,10 @@ resources:
   - openebs/ks.yaml
   - prometheus-operator/ks.yaml
   - snapshot-controller/ks.yaml
-  - spegel/ks.yaml
+  # spegel disabled (kept in the repo): it shares images between nodes, so on a single node it
+  # does nothing and is never Ready (readiness needs >= 1 peer, no single-node mode, see
+  # spegel-org/spegel#1120). Re-enable if nodes are added.
+  # - spegel/ks.yaml
   - system-upgrade-controller/ks.yaml
   - traefik-crds/ks.yaml
   - volsync/ks.yaml
