@@ -3,9 +3,9 @@
 name: "Test and Automerge"
 
 on:
+  # Runs on every PR (no paths filter) so "Kubeconform" can be a required status check on main
   pull_request:
     branches: ["main"]
-    paths: ["clusters/main/kubernetes/**"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
