@@ -33,9 +33,9 @@
       "automerge": false
     },
     {
-      "description": ["Release tags look like 2026.09.28.1 (4 parts); the default versioning can't compare them"],
+      "description": ["Release tags look like 2026.09.28.1 (4 parts); 'loose' read the pin as 2026.09.28 and then failed the digest lookup"],
       "matchPackageNames": ["Homebrew/actions"],
-      "versioning": "loose"
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$"
     },
     {
       "description": ["Dev container only; oci.trueforge.org doesn't answer anonymous digest lookups"],
