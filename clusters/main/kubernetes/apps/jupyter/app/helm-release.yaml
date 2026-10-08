@@ -50,7 +50,9 @@ spec:
       securityContext:
         container:
           runAsUser: 568
-          runAsGroup: 568
+          # gid 0 (root GROUP, not root user): the docker-stacks start script needs it to add
+          # uid 568 to /etc/passwd when not started as root
+          runAsGroup: 0
           runAsNonRoot: true
           capabilities:
             add: []
