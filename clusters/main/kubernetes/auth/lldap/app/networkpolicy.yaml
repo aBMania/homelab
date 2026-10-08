@@ -1,0 +1,71 @@
+---
+# Default: nothing may connect to pods in this namespace (the node itself, e.g. kubelet probes,
+# is always allowed by Cilium). Then only the traffic lldap needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: lldap
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# LDAP (3890) only for Authelia; web UI (17170) only through Traefik
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lldap
+  namespace: lldap
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: lldap
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: authelia
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: authelia
+      ports:
+        - port: 3890
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 17170
+---
+# Postgres: lldap + replication between instances + the CNPG operator (status port 8000)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  namespace: lldap
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: lldap-cnpg-main
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: lldap
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: lldap-cnpg-main
+      ports:
+        - port: 5432
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudnative-pg
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: lldap-cnpg-main
+      ports:
+        - port: 5432
+        - port: 8000
