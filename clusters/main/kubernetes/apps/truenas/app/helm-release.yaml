@@ -47,6 +47,10 @@ spec:
       service:
         main:
           enabled: true
+          # external-service >= 17 no longer derives this from protocol: https; without it Traefik
+          # talks plain HTTP to the TrueNAS HTTPS port (400 "plain HTTP request sent to HTTPS port")
+          annotations:
+            traefik.ingress.kubernetes.io/service.serversscheme: https
           externalIP: 192.168.1.73
           ports:
             main:
