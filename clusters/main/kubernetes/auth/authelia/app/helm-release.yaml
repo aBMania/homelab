@@ -90,23 +90,42 @@ spec:
           user: uid=admin,ou=people,dc=${DN},dc=${DC}
           password: ${LLDAP_PASSWORD}
       access_control:
+        # Anything not matched below is refused (the chart default would be one_factor = any user, any app)
+        default_policy: deny
+        networks:
+          - name: lan
+            networks:
+              - 192.168.0.0/16
+        # First matching rule wins
         rules:
+          # Jupyter runs code (as root): always password + TOTP, even at home
+          - domain:
+              - "science.${DOMAIN_0}"
+            policy: two_factor
+            subject:
+              - group:science
+              - group:admin
+          # Family: password only, media request/subtitle apps
           - domain:
               - "tvshows.${DOMAIN_0}"
               - "movies.${DOMAIN_0}"
-              - "www.${DOMAIN_0}"
+              - "subtitles.${DOMAIN_0}"
             policy: one_factor
             subject: group:user
-          - domain:
-              - "science.${DOMAIN_0}"
-            policy: one_factor
-            subject: group:science
+          # Admins at home: password only
           - domain:
               - ${DOMAIN_0}
               - '*.${DOMAIN_0}'
             policy: one_factor
-            subject:
-              - group:admin
+            subject: group:admin
+            networks:
+              - lan
+          # Admins from outside: password + TOTP
+          - domain:
+              - ${DOMAIN_0}
+              - '*.${DOMAIN_0}'
+            policy: two_factor
+            subject: group:admin
       session:
         cookies:
           - domain: '${DOMAIN_0}'
