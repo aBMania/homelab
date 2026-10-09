@@ -9,7 +9,7 @@ talhelper = "3.1.17"
 k9s = "0.51.0"
 # Manifests and charts
 helm = "4.3.0"
-kustomize = "5.8.2"
+kustomize = "5.8.3"
 kubeconform = "0.8.0"
 yq = "4.54.1"
 jq = "1.8.2"
