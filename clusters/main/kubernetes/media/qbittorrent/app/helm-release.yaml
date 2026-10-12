@@ -66,6 +66,8 @@ spec:
           # (re)applies the qBittorrent settings that keep the VPN tunnel stable.
           # Without limits/queueing, qBittorrent opens so many new connections
           # that ProtonVPN drops all new flows for 30s-2min (tunnel "blackouts").
+          # Upload is capped at 1 MB/s (alt speed) from 06:00 to 23:00 UTC so seeding
+          # doesn't saturate the home uplink; full 6 MB/s overnight.
           qbt-up.sh: |
             #!/bin/sh
             cat > /tmp/qbt-prefs.json <<EOF
@@ -74,7 +76,10 @@ spec:
               "max_connec": 300, "max_connec_per_torrent": 30, "max_uploads": 60,
               "connection_speed": 10, "max_concurrent_http_announces": 10,
               "dl_limit": 25000000, "up_limit": 6000000,
-              "alt_dl_limit": 25000000, "alt_up_limit": 6000000,
+              "alt_dl_limit": 25000000, "alt_up_limit": 1000000,
+              "scheduler_enabled": true, "scheduler_days": 0,
+              "schedule_from_hour": 6, "schedule_from_min": 0,
+              "schedule_to_hour": 23, "schedule_to_min": 0,
               "limit_tcp_overhead": true,
               "queueing_enabled": true, "max_active_downloads": 10,
               "max_active_uploads": 25, "max_active_torrents": 35,
