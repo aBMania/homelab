@@ -10,7 +10,7 @@ spec:
   podSelector: {}
   policyTypes: [Ingress]
 ---
-# LDAP (3890) only for Authelia; web UI (17170) only through Traefik
+# LDAP (3890) only for Authelia and Emby (LDAP plugin); web UI (17170) only through Traefik
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -29,6 +29,12 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: authelia
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: media
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: emby
       ports:
         - port: 3890
     - from:
