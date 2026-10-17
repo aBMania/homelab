@@ -109,8 +109,11 @@ the Emby Android TV app is uncertain. This is a one-line change to revert after 
    matches the VO requirement, but language detection on old imports can be wrong. The user
    reviews that list in the Sonarr/Radarr UI before the bulk switch. Titles are never printed by
    tooling.
-4. **61 movies are already 2160p** in the 1080p library. Radarr doesn't downgrade, so under the
-   HD profile they would stay 4K forever, and remote viewers would keep forcing 4K transcodes.
+4. **61 movies are already 2160p** in the 1080p library. *(Corrected 2026-10-17.)* The HD
+   profile ranks `Bluray|WEB 1080p` **above** every 2160p quality (recyclarr puts allowed
+   qualities on top), so for a 2160p file any 1080p release counts as an upgrade: switching
+   these movies to the HD profile would **replace their 4K files**. They must stay on their
+   current profile until P5 moves them to radarr-4k.
 5. **Emby watched state** may reset for movies whose path changes. This gets checked on the
    first batch.
 
@@ -141,8 +144,9 @@ verified.
 - Then 24 hours of Activity → Queue and decluttarr logs, for unexpected automatic (RSS) grabs.
 
 **P3: Bulk switch**
-- After the user reviews the no-VO list: Radarr and Sonarr Mass Editor → every item onto the
-  new HD profile. Unmonitored items too, since that's harmless.
+- After the user reviews the no-VO list: every item onto the new HD profile, unmonitored
+  ones too, **except the movies whose file is 2160p** (risk 4). Sonarr's 6 2160p episodes may
+  be replaced by 1080p (user decision, 2026-10-17).
 - Jellyseerr default profiles get switched as well.
 - Watched for 2 weeks. **Rollback** = Mass Editor back to the old built-in profile, which stays
   available until P6. Abort threshold: more than 30 grabs per day sustained over 3 days.
@@ -166,7 +170,7 @@ verified.
   (61 × ~10 GB), well within the 5.06 TB free.
 - Afterwards, the user can delete the 4K versions of movies that don't deserve one, from
   radarr-4k (delete files). That frees about 30 GB each.
-- The 6 2160p episodes stay as they are: Sonarr doesn't downgrade, and that's harmless.
+- The 6 2160p episodes get replaced by 1080p over time (user decision, 2026-10-17).
 
 **P6: Cleanup (after 30 days)**
 - Delete the unused built-in profiles in both apps.
@@ -180,6 +184,11 @@ verified.
 - Per phase: queue size and grab counts from the aggregate script. Titles never get printed.
 
 ## Decisions
+
+- **x265 at 1080p is allowed** (decided 2026-10-17 after the canary): `x265 (HD)` is excluded
+  from the Golden Rule HD group in both HD instances. Otherwise 983 episodes and 27 movies would
+  score −10000 and get replaced by bigger x264 releases. The `LQ`, `FR LQ` and `BR-DISK`
+  penalties stay.
 
 - **P5: keep all 61 existing 4K files** (approved) as 4K versions and add 1080p twins. That's
   the no-loss path, and the user prunes 4K versions afterwards. The alternative is to pick the
