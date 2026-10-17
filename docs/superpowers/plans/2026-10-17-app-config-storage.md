@@ -29,7 +29,7 @@ corruption of watched states, users and the library.
 | bazarr, jellyseerr | **Longhorn** (Task 5) | also SQLite in WAL mode on NFS (checked 2026-10-17); no freezes seen yet, but the same risk. Tiny (19 M / 1.5 M) |
 | qbittorrent | NFS (unchanged) | no SQLite: plain resume files (default storage type), fine on NFS |
 
-Sizes: radarr 508 M → 2 Gi PVC, sonarr 236 M → 2 Gi, prowlarr 19 M → 1 Gi, emby without
+Sizes: radarr 508 M → 5 Gi PVC (done), sonarr 236 M → 2 Gi, prowlarr 19 M → 1 Gi, emby without
 `sync` ~2 G → 10 Gi. Longhorn runs 1 replica (single node). `node:down`/`node:up` already
 auto-discover Longhorn mounters.
 
@@ -76,6 +76,9 @@ SQLite and Postgres recover from that.
 
 ## Per-app cutover (Tasks 1–3: radarr, sonarr, prowlarr)
 
+**Task 1 (radarr) done 2026-10-18 (#992)**: 5 Gi PVC (MediaCover images grow with the library),
+counts identical before/after, download-client and Emby tests OK. Next: 24 h without restarts.
+
 **PR (one per app):**
 - Add `app/<app>-config-pvc.yaml`: a PVC `<app>-config`, `storageClassName: longhorn`,
   `ReadWriteOnce`, size as above, annotated `helm.sh/resource-policy: keep`. List it in the
@@ -84,15 +87,25 @@ SQLite and Postgres recover from that.
   `helm template` that the Deployment mounts claim `<app>-config` at `/config`, and that
   `mise run validate` passes.
 
-**Cutover (user-run, about 5 min of downtime):**
-1. `flux suspend hr -n media <app>`, then `kubectl -n media scale deploy/<app> --replicas=0`,
-   and wait until the pod is gone. The database is closed now, so the `-wal`/`-shm` files are
-   consistent with it.
-2. Merge the PR. The Kustomization creates the PVC; the suspended HelmRelease doesn't change yet.
-3. Copy: a one-off pod (`busybox`, runAsUser/runAsGroup/fsGroup 568) mounting the NFS path
-   read-only at `/src` and the PVC at `/dst`, running `cp -a /src/. /dst/ && ls -la /dst`.
-   Then delete the pod.
-4. `flux resume hr -n media <app>`. Helm applies the new values, and the pod starts on the PVC.
+**Cutover (two-pass rsync: the downtime is only the final pass):**
+1. Merge the PR **with the HelmRelease suspended first** (`flux suspend hr -n media <app>`), so the
+   Kustomization creates the PVC and the app keeps running on NFS.
+2. **First pass, app still running:** a one-off pod (runAsUser/runAsGroup/fsGroup 568) with the NFS
+   path mounted read-only at `/src` and the PVC at `/dst`, running
+   `apk add --no-cache rsync && rsync -a /src/ /dst/` (image `alpine`). It copies ~all the data;
+   slow is fine. Delete the pod.
+3. **Stop the app:** `kubectl -n media scale deploy/<app> --replicas=0`, then wait until the pod
+   is gone. The database is closed, so the `-wal`/`-shm` files are consistent with it.
+4. **Final pass:** the same pod with `rsync -a --delete /src/ /dst/`. It only copies the changes
+   since step 2 (seconds). Its log shows the file counts on both sides.
+5. `flux resume hr -n media <app>`. The pod starts on the PVC.
+
+Notes from the radarr cutover (2026-10-18):
+- busybox `cp -a` worked (1636/1636 files), but it isn't resumable, and the downtime is the whole
+  copy (about 10 min with the pool busy). Hence rsync in two passes.
+- "can't preserve permissions of '/dst/.'" is harmless: it's the PVC's root, already writable
+  through `fsGroup`.
+- Run cutovers when no big I/O (backup replication, full library scans) is running on `tank`.
 
 **Verify:**
 - `mise run media:stats`: item and file counts are unchanged. API key, download client and
