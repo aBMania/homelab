@@ -67,6 +67,8 @@ spec:
             containers:
               main:
                 env:
+                  # Like radarr: no own login, Authelia (Traefik auth middleware) is the login
+                  RADARR__AUTH__METHOD: External
                   # Fixed API key from git (SOPS) so recyclarr/decluttarr/migrate-4k can use it
                   RADARR__AUTH__APIKEY:
                     secretKeyRef:
