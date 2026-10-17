@@ -22,14 +22,29 @@ data:
           - trash_id: 2572ce3ea4eef1c19d59e0e20ed1cea7  # [French MULTi.VO] HD Bluray + WEB
             reset_unmatched_scores:
               enabled: true
+        # No Golden Rule HD group: x265 is allowed at 1080p (decided 2026-10-17)
         custom_format_groups:
           add:
-            - trash_id: f8bf8eab4617f12dfdbd16303d8da245  # [Optional] Golden Rule HD
-              # Allow x265 at 1080p: smaller files, most MULTi releases are x265, and
-              # the GTX 960 decodes HEVC (would otherwise flag ~1000 files for replacement)
-              exclude:
-                - dc98083864ea246d05a42df0d05f81cc  # x265 (HD)
             - trash_id: 59f7ab9ff64d0026b011b985b1cc8670  # [Unwanted] Unwanted Formats French
+
+      # radarr/templates/french-multi-vo-uhd-bluray-web.yml (4K twins, radarr-4k)
+      radarr-uhd:
+        base_url: http://radarr-4k.media.svc.cluster.local:7878
+        api_key: !env_var RADARR_4K_API_KEY
+        delete_old_custom_formats: true
+        quality_definition:
+          type: movie
+        quality_profiles:
+          - trash_id: 92ead7022d13a7858d54e328e6a2f8f9  # [French MULTi.VO] UHD Bluray + WEB
+            reset_unmatched_scores:
+              enabled: true
+        custom_format_groups:
+          add:
+            - trash_id: ff204bbcecdd487d1cefcefdbf0c278d  # [Optional] Golden Rule UHD (x265 SDR penalized)
+            - trash_id: 59f7ab9ff64d0026b011b985b1cc8670  # [Unwanted] Unwanted Formats French
+            # The projector (Emby Android TV app) may not handle DV profile 5 correctly:
+            # reject DV releases without an HDR10 fallback until tested
+            - trash_id: 7fc2751eef7e6bdc70b74136e5e35c76  # [HDR Formats] DV (w/o HDR fallback)
 
     # sonarr/templates/french-multi-vo-bluray-web-1080p.yml
     sonarr:
@@ -43,11 +58,7 @@ data:
           - trash_id: 4c48f506c1116a3a57ae33f12346bd15  # [French MULTi.VO] HD Bluray + WEB (1080p)
             reset_unmatched_scores:
               enabled: true
+        # No Golden Rule HD group: x265 is allowed at 1080p (decided 2026-10-17)
         custom_format_groups:
           add:
-            - trash_id: 158188097a58d7687dee647e04af0da3  # [Optional] Golden Rule HD
-              # Allow x265 at 1080p: smaller files, most MULTi releases are x265, and
-              # the GTX 960 decodes HEVC (would otherwise flag ~1000 files for replacement)
-              exclude:
-                - 47435ece6b99a0b477caf360e79ba0bb  # x265 (HD)
             - trash_id: a23c8675c79118544fd74153394fa589  # [Unwanted] Unwanted Formats French

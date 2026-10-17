@@ -47,8 +47,11 @@ spec:
                 enabled: false
             containers:
               main:
-                # RADARR_API_KEY / SONARR_API_KEY, read with !env_var in the config
+                # RADARR_API_KEY / SONARR_API_KEY / RADARR_4K_API_KEY, read with !env_var
                 envFrom:
                   - secretRef:
                       name: decluttarr-secret
+                      expandObjectName: false
+                  - secretRef:
+                      name: radarr-4k-secret
                       expandObjectName: false
