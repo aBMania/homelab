@@ -138,6 +138,15 @@ class StateTest(unittest.TestCase):
         self.assertEqual(migrate_4k.state(movie(3, 103, None), None), "skip")
 
 
+    def test_detects_4k_from_mediainfo_when_quality_unknown(self):
+        unknown_4k = movie(4, 104, res=0)
+        unknown_4k["movieFile"]["mediaInfo"] = {"resolution": "3840x1604"}
+        unknown_hd = movie(5, 105, res=0)
+        unknown_hd["movieFile"]["mediaInfo"] = {"resolution": "1920x800"}
+        self.assertEqual(migrate_4k.state(unknown_4k, None), "todo")
+        self.assertEqual(migrate_4k.state(unknown_hd, None), "skip")
+
+
 class MigrateTest(unittest.TestCase):
     def setUp(self):
         self.log = []
@@ -190,6 +199,16 @@ class MigrateTest(unittest.TestCase):
                          [(False, "none"), (False, "none")])
         self.assertEqual([m["monitored"] for m in list(radarr.movies.values())
                           + list(radarr4k.movies.values())], [False, False])
+
+    def test_4k_copy_added_unmonitored(self):
+        # Existing 4K files must not be "upgraded" (re-downloaded) by radarr-4k: the 4K copy is
+        # unmonitored; the HD twin keeps the source's monitored state so its 1080p gets searched.
+        run(self.radarr, self.radarr4k, 101)
+        k_post = next(c[2] for c in self.radarr4k.calls if c[:2] == ("POST", "/api/v3/movie"))
+        r_post = next(c[2] for c in self.radarr.calls if c[:2] == ("POST", "/api/v3/movie"))
+        self.assertEqual((k_post["monitored"], k_post["addOptions"]["monitor"]), (False, "none"))
+        self.assertEqual((r_post["monitored"], r_post["addOptions"]["monitor"]), (True, "movieOnly"))
+        self.assertFalse(next(iter(self.radarr4k.movies.values()))["monitored"])
 
     def test_skips_folder_collision(self):
         radarr, radarr4k = pair([movie(1, 101)],
