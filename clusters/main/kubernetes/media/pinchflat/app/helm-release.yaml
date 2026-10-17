@@ -45,6 +45,7 @@ spec:
               tag: latest@sha256:01b4f98aabaf3f5fe394213f7a32578c9e84e42080f52e2f8334021a4473b202
             env:
               TZ: Europe/Paris
+              MEDIA_PATH: /media/youtube
             probes:
               liveness: &probe
                 enabled: true
@@ -96,9 +97,12 @@ spec:
         retain: true
         globalMounts:
           - path: /config
-      downloads:
+      media:
+        # Mount the export root like the other media apps: other:: has no x on
+        # /mnt/tank/media, so the root-squashed client can't mount a subdirectory
+        # ("access denied by server"). The pod runs as 568 (owner) and can traverse.
         type: nfs
         server: ${NFS_HOST}
-        path: /mnt/tank/media/youtube
+        path: /mnt/tank/media
         globalMounts:
-          - path: /downloads
+          - path: /media
