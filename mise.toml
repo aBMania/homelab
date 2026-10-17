@@ -82,3 +82,11 @@ run = "scripts/node-up.sh"
 [tasks."media:stats"]
 description = "Aggregate Radarr/Sonarr(/radarr-4k) stats: counts by profile, resolution, audio vs original language, queue, grabs in 24h (no titles)"
 run = "bash -c 'source scripts/arr.sh && python3 -I scripts/media_stats.py'"
+
+[tasks."media:migrate-4k"]
+description = "Move movies with a 2160p file from radarr into radarr-4k (no re-download), then re-add them to radarr without search. Dry run unless --apply; --limit N (default 10)"
+run = "bash -c 'source scripts/arr.sh && python3 scripts/migrate_4k.py \"$@\"' migrate-4k"
+
+[tasks."media:search-twins"]
+description = "Search the 1080p twin of up to --limit N (default 10) migrated 4K movies in radarr. Dry run unless --apply"
+run = "bash -c 'source scripts/arr.sh && python3 scripts/migrate_4k.py search-twins \"$@\"' search-twins"
