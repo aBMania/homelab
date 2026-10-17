@@ -26,7 +26,8 @@ corruption of watched states, users and the library.
 | Media library `/mnt/tank/media` (~9 TB) | NFS (unchanged) | shared by several apps (hardlinks), visible to TrueNAS, too big for the VM |
 | Emby `sync` (20 GB of converted copies) | NFS (unchanged), its own mount at `/config/sync` | big plain files; keeps the PVC small |
 | Emby `transcode` | NFS on `tank2` SSD (unchanged) | fast scratch space; tank2 is a single disk without redundancy, so nothing durable goes there |
-| bazarr, jellyseerr, qbittorrent | NFS (unchanged) | no problems seen (bazarr doesn't use WAL) |
+| bazarr, jellyseerr | **Longhorn** (Task 5) | also SQLite in WAL mode on NFS (checked 2026-10-17); no freezes seen yet, but the same risk. Tiny (19 M / 1.5 M) |
+| qbittorrent | NFS (unchanged) | no SQLite: plain resume files (default storage type), fine on NFS |
 
 Sizes: radarr 508 M → 2 Gi PVC, sonarr 236 M → 2 Gi, prowlarr 19 M → 1 Gi, emby without
 `sync` ~2 G → 10 Gi. Longhorn runs 1 replica (single node). `node:down`/`node:up` already
@@ -112,9 +113,14 @@ Same cutover, plus:
   the cutover, as done for the 4K migration), API keys (Jellyseerr's Emby test, radarr/radarr-4k
   Emby connection tests).
 
-## Task 5: cleanup (2 weeks after the last cutover)
+## Task 5: bazarr and jellyseerr
 
-- Delete the old NFS datasets and shares: `tank/apps/{radarr,sonarr,prowlarr}`,
+Same cutover as Tasks 1–3, with 1 Gi PVCs. Verify: Bazarr's providers and history; Jellyseerr's
+servers, users and requests (all three server tests pass).
+
+## Task 6: cleanup (2 weeks after the last cutover)
+
+- Delete the old NFS datasets and shares: `tank/apps/{radarr,sonarr,prowlarr,bazarr,jellyseerr}`,
   `tank/apps/emby` except `sync`, and the unused `tank/apps/radarr-4k` (since #988).
 - Update `AGENTS.md`: app configs live on Longhorn PVCs, media on NFS, plus the backup choice.
 
