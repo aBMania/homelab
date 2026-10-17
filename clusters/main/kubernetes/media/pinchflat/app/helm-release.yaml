@@ -62,8 +62,9 @@ spec:
                 cpu: 50m
                 memory: 256Mi
               limits:
-                # ffmpeg merges spike memory
-                memory: 1Gi
+                # ffmpeg merges spike memory: 1Gi got OOMKilled embedding
+                # subs/thumbnail into multi-hour (2-3 GB) videos
+                memory: 3Gi
     service:
       app:
         controller: pinchflat
