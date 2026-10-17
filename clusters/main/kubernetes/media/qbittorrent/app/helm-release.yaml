@@ -59,8 +59,10 @@ spec:
             name = "liveness-probe"
             routes = ["GET /v1/portforward"]
             auth = "none"
-          # Share limits (public trackers only): a torrent is removed WITH its files at ratio 2
-          # or after 1 year of seeding (525600 min; max_ratio_act 3 = remove torrent + content).
+          # Share limits (public trackers only): a torrent is STOPPED at ratio 2 or after 1 year
+          # of seeding (525600 min; max_ratio_act 0 = stop). Radarr/Sonarr ("Remove Completed")
+          # then delete it with its files, after import. Removing it here (max_ratio_act 3)
+          # could delete a torrent before it's imported, and the *arrs warn about it.
           # Imported media stays in the library (hardlinks), only the torrent copy goes.
           # Run by gluetun each time it gets a forwarded port: sets the port and
           # (re)applies the qBittorrent settings that keep the VPN tunnel stable.
@@ -86,7 +88,7 @@ spec:
               "dont_count_slow_torrents": false,
               "max_ratio_enabled": true, "max_ratio": 2,
               "max_seeding_time_enabled": true, "max_seeding_time": 525600,
-              "max_ratio_act": 3
+              "max_ratio_act": 0
             }
             EOF
             wget -qO- --retry-connrefused --tries=30 \
