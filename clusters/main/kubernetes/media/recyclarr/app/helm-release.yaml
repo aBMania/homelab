@@ -31,9 +31,24 @@ spec:
           type: nfs
           path: /mnt/tank/apps/recyclarr
           server: ${NFS_HOST}
+        # recyclarr-configs.yaml (git); the old NFS recyclarr.yml was renamed to .bak
+        recyclarr-configs:
+          enabled: true
+          type: configmap
+          objectName: recyclarr-configs
+          expandObjectName: false
+          mountPath: /config/configs
+          readOnly: true
       workload:
         main:
           podSpec:
             initContainers:
               initconfig:
                 enabled: false
+            containers:
+              main:
+                # RADARR_API_KEY / SONARR_API_KEY, read with !env_var in the config
+                envFrom:
+                  - secretRef:
+                      name: decluttarr-secret
+                      expandObjectName: false

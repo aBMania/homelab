@@ -1,0 +1,45 @@
+---
+# recyclarr config, mounted at /config/configs (recyclarr loads every *.yml there).
+# TRaSH French MULTi.VO profiles: original audio required, MULTi (VO + VF) preferred,
+# French-dub-only rejected. Built from recyclarr/config-templates (default CF groups).
+# See docs/superpowers/specs/2026-10-17-quality-profiles-4k-design.md
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recyclarr-configs
+  namespace: media
+data:
+  french-multi-vo.yml: |
+    # radarr/templates/french-multi-vo-hd-bluray-web.yml
+    radarr:
+      radarr-hd:
+        base_url: http://radarr.media.svc.cluster.local:7878
+        api_key: !env_var RADARR_API_KEY
+        delete_old_custom_formats: true
+        quality_definition:
+          type: movie
+        quality_profiles:
+          - trash_id: 2572ce3ea4eef1c19d59e0e20ed1cea7  # [French MULTi.VO] HD Bluray + WEB
+            reset_unmatched_scores:
+              enabled: true
+        custom_format_groups:
+          add:
+            - trash_id: f8bf8eab4617f12dfdbd16303d8da245  # [Optional] Golden Rule HD
+            - trash_id: 59f7ab9ff64d0026b011b985b1cc8670  # [Unwanted] Unwanted Formats French
+
+    # sonarr/templates/french-multi-vo-bluray-web-1080p.yml
+    sonarr:
+      sonarr-hd:
+        base_url: http://sonarr.media.svc.cluster.local:8989
+        api_key: !env_var SONARR_API_KEY
+        delete_old_custom_formats: true
+        quality_definition:
+          type: series
+        quality_profiles:
+          - trash_id: 4c48f506c1116a3a57ae33f12346bd15  # [French MULTi.VO] HD Bluray + WEB (1080p)
+            reset_unmatched_scores:
+              enabled: true
+        custom_format_groups:
+          add:
+            - trash_id: 158188097a58d7687dee647e04af0da3  # [Optional] Golden Rule HD
+            - trash_id: a23c8675c79118544fd74153394fa589  # [Unwanted] Unwanted Formats French
