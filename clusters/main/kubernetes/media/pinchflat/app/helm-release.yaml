@@ -106,3 +106,10 @@ spec:
         path: /mnt/tank/media
         globalMounts:
           - path: /media
+      downloads:
+        # Unused placeholder: Pinchflat's startup check always writes to /downloads
+        # (hardcoded, besides MEDIA_PATH), and the image's /downloads is root-owned 755.
+        type: emptyDir
+        sizeLimit: 1Mi
+        globalMounts:
+          - path: /downloads
