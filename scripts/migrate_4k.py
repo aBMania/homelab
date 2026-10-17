@@ -36,6 +36,14 @@ def _resolution(m):
     return (m.get("movieFile") or {}).get("quality", {}).get("quality", {}).get("resolution")
 
 
+def is_4k(movie):
+    """Radarr's quality says 2160p, or (quality Unknown) the video itself is >= 3800 px wide."""
+    if _resolution(movie) == 2160:
+        return True
+    width = ((movie.get("movieFile") or {}).get("mediaInfo") or {}).get("resolution", "")
+    return width.split("x")[0].isdigit() and int(width.split("x")[0]) >= 3800
+
+
 def _in_4k_root(path):
     return path.startswith(ROOT_4K + "/")
 
@@ -49,7 +57,7 @@ def state(r, k, taken_paths=frozenset(), tag_id=None):
         return "in-4k" if k is not None and k.get("hasFile") else "moved"
     if k is not None:
         return "done" if k_migrated else "skip"
-    if r.get("hasFile") and _resolution(r) == 2160:
+    if r.get("hasFile") and is_4k(r):
         return "collision" if _target(r) in taken_paths else "todo"
     return "skip"
 

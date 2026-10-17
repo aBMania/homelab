@@ -138,6 +138,15 @@ class StateTest(unittest.TestCase):
         self.assertEqual(migrate_4k.state(movie(3, 103, None), None), "skip")
 
 
+    def test_detects_4k_from_mediainfo_when_quality_unknown(self):
+        unknown_4k = movie(4, 104, res=0)
+        unknown_4k["movieFile"]["mediaInfo"] = {"resolution": "3840x1604"}
+        unknown_hd = movie(5, 105, res=0)
+        unknown_hd["movieFile"]["mediaInfo"] = {"resolution": "1920x800"}
+        self.assertEqual(migrate_4k.state(unknown_4k, None), "todo")
+        self.assertEqual(migrate_4k.state(unknown_hd, None), "skip")
+
+
 class MigrateTest(unittest.TestCase):
     def setUp(self):
         self.log = []
