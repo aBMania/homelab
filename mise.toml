@@ -78,3 +78,7 @@ run = "scripts/node-down.sh"
 [tasks."node:up"]
 description = "Undo node:down after the node is back (wake CNPG, restore replicas, resume Flux) and health-check"
 run = "scripts/node-up.sh"
+
+[tasks."media:stats"]
+description = "Aggregate Radarr/Sonarr(/radarr-4k) stats: counts by profile, resolution, audio vs original language, queue, grabs in 24h (no titles)"
+run = "bash -c 'source scripts/arr.sh && python3 -I scripts/media_stats.py'"
