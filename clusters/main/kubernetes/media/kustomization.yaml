@@ -6,6 +6,7 @@ resources:
   - pinchflat/ks.yaml
   - prowlarr/ks.yaml
   - emby/ks.yaml
+  - jellyseerr/ks.yaml
   - qbittorrent/ks.yaml
   - radarr/ks.yaml
   - recyclarr/ks.yaml
