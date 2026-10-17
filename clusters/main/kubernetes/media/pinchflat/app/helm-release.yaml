@@ -75,6 +75,8 @@ spec:
         annotations:
           cert-manager.io/cluster-issuer: domain-0-le-prod
           traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          # Without it Traefik builds the router without TLS and HTTPS requests get a 404
+          traefik.ingress.kubernetes.io/router.tls: "true"
           # Pinchflat has no real auth of its own: put it behind Authelia
           traefik.ingress.kubernetes.io/router.middlewares: traefik-auth@kubernetescrd
         hosts:
