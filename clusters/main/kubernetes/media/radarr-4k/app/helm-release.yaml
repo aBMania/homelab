@@ -1,0 +1,75 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+# 4K twin of radarr: UHD profile, root /media/movies-4k (Emby "Movies 4K" library).
+# See docs/superpowers/specs/2026-10-17-quality-profiles-4k-design.md
+metadata:
+    name: radarr-4k
+    namespace: media
+spec:
+    interval: 5m
+    chart:
+        spec:
+            # renovate: registryUrl=oci://oci.trueforge.org/truecharts
+            chart: radarr
+            version: 27.13.4
+            sourceRef:
+                kind: HelmRepository
+                name: truecharts
+                namespace: flux-system
+            interval: 5m
+    install:
+        createNamespace: true
+        crds: CreateReplace
+        remediation:
+            retries: 3
+    upgrade:
+        crds: CreateReplace
+        remediation:
+            retries: 3
+    values:
+      ingress:
+        main:
+          enabled: true
+          integrations:
+            traefik:
+              enabled: true
+              middlewares:
+                - name: auth
+                  namespace: traefik
+                  # middleware lives in the traefik namespace: don't prefix it with the release name
+                  expandObjectName: false
+            certManager:
+              enabled: true
+              certificateIssuer: domain-0-le-prod
+          hosts:
+            - host: movies-4k.${DOMAIN_0}
+              paths:
+                - path: /
+                  pathType: Prefix
+      persistence:
+        config:
+          enabled: true
+          type: nfs
+          path: /mnt/tank/apps/radarr-4k
+          server: ${NFS_HOST}
+        media:
+          enabled: true
+          type: nfs
+          path: /mnt/tank/media
+          mountPath: /media
+          server: ${NFS_HOST}
+      metrics:
+        main:
+          enabled: false
+      workload:
+        main:
+          podSpec:
+            containers:
+              main:
+                env:
+                  # Fixed API key from git (SOPS) so recyclarr/decluttarr/migrate-4k can use it
+                  RADARR__AUTH__APIKEY:
+                    secretKeyRef:
+                      name: radarr-4k-secret
+                      key: RADARR_4K_API_KEY
+                      expandObjectName: false
