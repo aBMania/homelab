@@ -3,7 +3,9 @@
 re-downloading, then re-add them to radarr so a 1080p twin can be searched later.
 
 Per movie, each step idempotent (state() decides where to resume after an interruption):
-  1. radarr: move the folder to /media/movies-4k (editor, moveFiles)
+  1. radarr: move the folder to /media/movies-4k/<same name> (PUT movie, moveFiles). Radarr
+     updates its DB path at once and moves the files in a queued command, so step 2 first
+     waits until radarr-4k sees the folder on disk.
   2. radarr-4k: add it at that path (UHD profile, tag migrated-4k, no search) + rescan
   3. radarr: remove it, keeping files
   4. radarr: re-add it under /media/movies (HD profile, no search)
@@ -48,8 +50,7 @@ def state(r, k, taken_paths=frozenset(), tag_id=None):
     if k is not None:
         return "done" if k_migrated else "skip"
     if r.get("hasFile") and _resolution(r) == 2160:
-        target = f'{ROOT_4K}/{r["path"].rstrip("/").rsplit("/", 1)[1]}'
-        return "collision" if target in taken_paths else "todo"
+        return "collision" if _target(r) in taken_paths else "todo"
     return "skip"
 
 
@@ -72,12 +73,25 @@ def _poll(fetch, done, timeout, wait, what):
     raise TimeoutError(what)
 
 
+def _unmapped(radarr4k):
+    """Folders on disk under ROOT_4K that radarr-4k doesn't track."""
+    return {f["path"] for rf in radarr4k.get("/api/v3/rootfolder") if rf["path"] == ROOT_4K
+            for f in rf.get("unmappedFolders", [])}
+
+
+def _target(r):
+    return f'{ROOT_4K}/{r["path"].rstrip("/").rsplit("/", 1)[1]}'
+
+
 def _add_body(src, profile, root, path=None, tags=()):
+    # addOptions.monitor decides the monitored state on add; "none" keeps it unmonitored
     body = {"tmdbId": src["tmdbId"], "title": src["title"], "year": src["year"],
             "qualityProfileId": profile, "rootFolderPath": root,
             "monitored": src["monitored"],
             "minimumAvailability": src.get("minimumAvailability", "released"),
-            "tags": list(tags), "addOptions": {"searchForMovie": False}}
+            "tags": list(tags),
+            "addOptions": {"searchForMovie": False,
+                           "monitor": "movieOnly" if src["monitored"] else "none"}}
     if path:
         body["path"] = path
     return body
@@ -89,20 +103,21 @@ def migrate_one(radarr, radarr4k, tmdb_id, hd_profile, uhd_profile, apply, wait=
         k_movies = radarr4k.get("/api/v3/movie")
         r, k = _by_tmdb(radarr.get("/api/v3/movie"), tmdb_id), _by_tmdb(k_movies, tmdb_id)
         taken = {m["path"] for m in k_movies if m["tmdbId"] != tmdb_id}
-        st = state(r, k, taken, _tag_id(radarr4k))
+        st = state(r, k, taken | _unmapped(radarr4k), _tag_id(radarr4k))
         if not apply or st in TERMINAL:
             return st
-        if st == "todo":  # step 1
-            radarr.put("/api/v3/movie/editor", {"movieIds": [r["id"]], "rootFolderPath": ROOT_4K,
-                                                "moveFiles": True})
-            _poll(lambda: radarr.get(f'/api/v3/movie/{r["id"]}'),
-                  lambda m: _in_4k_root(m["path"]), MOVE_TIMEOUT, wait, "move")
+        if st == "todo":  # step 1: explicit path, so the folder name is ours
+            radarr.put(f'/api/v3/movie/{r["id"]}?moveFiles=true', {**r, "path": _target(r)})
         elif st == "moved":  # step 2
-            tag = _tag_id(radarr4k, create=True)
-            added = radarr4k.post("/api/v3/movie",
-                                  _add_body(r, uhd_profile, ROOT_4K, path=r["path"], tags=[tag]))
-            radarr4k.post("/api/v3/command", {"name": "RescanMovie", "movieId": added["id"]})
-            _poll(lambda: radarr4k.get(f'/api/v3/movie/{added["id"]}'),
+            if k is None:
+                # the DB path changed at once; wait for the queued move to land on disk
+                _poll(lambda: r["path"] in _unmapped(radarr4k), bool, MOVE_TIMEOUT, wait, "move")
+                tag = _tag_id(radarr4k, create=True)
+                k = radarr4k.post("/api/v3/movie", _add_body(r, uhd_profile, ROOT_4K,
+                                                             path=r["path"], tags=[tag]))
+            # (re)scan; on a rerun the movie is already in radarr-4k, never add it twice
+            radarr4k.post("/api/v3/command", {"name": "RescanMovie", "movieId": k["id"]})
+            _poll(lambda: radarr4k.get(f'/api/v3/movie/{k["id"]}'),
                   lambda m: m.get("hasFile"), RESCAN_TIMEOUT, wait, "rescan")
         elif st == "in-4k":  # steps 3 + 4
             if r is not None:
@@ -131,7 +146,7 @@ def migrate(radarr, radarr4k, apply, limit, wait):
     hd, uhd = _profile_id(radarr, HD_PROFILE), _profile_id(radarr4k, UHD_PROFILE)
     r_movies, k_movies = radarr.get("/api/v3/movie"), radarr4k.get("/api/v3/movie")
     tag_id = _tag_id(radarr4k)
-    taken = {m["path"] for m in k_movies}
+    taken = {m["path"] for m in k_movies} | _unmapped(radarr4k)
     before = {}
     for t in {m["tmdbId"] for m in r_movies} | {m["tmdbId"] for m in k_movies}:
         r, k = _by_tmdb(r_movies, t), _by_tmdb(k_movies, t)
