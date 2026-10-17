@@ -91,15 +91,16 @@ def _target(r):
     return f'{ROOT_4K}/{r["path"].rstrip("/").rsplit("/", 1)[1]}'
 
 
-def _add_body(src, profile, root, path=None, tags=()):
+def _add_body(src, profile, root, path=None, tags=(), monitored=None):
     # addOptions.monitor decides the monitored state on add; "none" keeps it unmonitored
+    monitored = src["monitored"] if monitored is None else monitored
     body = {"tmdbId": src["tmdbId"], "title": src["title"], "year": src["year"],
             "qualityProfileId": profile, "rootFolderPath": root,
-            "monitored": src["monitored"],
+            "monitored": monitored,
             "minimumAvailability": src.get("minimumAvailability", "released"),
             "tags": list(tags),
             "addOptions": {"searchForMovie": False,
-                           "monitor": "movieOnly" if src["monitored"] else "none"}}
+                           "monitor": "movieOnly" if monitored else "none"}}
     if path:
         body["path"] = path
     return body
@@ -121,16 +122,19 @@ def migrate_one(radarr, radarr4k, tmdb_id, hd_profile, uhd_profile, apply, wait=
                 # the DB path changed at once; wait for the queued move to land on disk
                 _poll(lambda: r["path"] in _unmapped(radarr4k), bool, MOVE_TIMEOUT, wait, "move")
                 tag = _tag_id(radarr4k, create=True)
-                k = radarr4k.post("/api/v3/movie", _add_body(r, uhd_profile, ROOT_4K,
-                                                             path=r["path"], tags=[tag]))
+                # unmonitored: keep the existing 4K file, never "upgrade" (re-download) it
+                k = radarr4k.post("/api/v3/movie", _add_body(r, uhd_profile, ROOT_4K, path=r["path"],
+                                                             tags=[tag], monitored=False))
             # (re)scan; on a rerun the movie is already in radarr-4k, never add it twice
             radarr4k.post("/api/v3/command", {"name": "RescanMovie", "movieId": k["id"]})
             _poll(lambda: radarr4k.get(f'/api/v3/movie/{k["id"]}'),
                   lambda m: m.get("hasFile"), RESCAN_TIMEOUT, wait, "rescan")
         elif st == "in-4k":  # steps 3 + 4
+            # the HD twin keeps the source's monitored state (if resumed after step 3: monitored)
+            hd_monitored = r["monitored"] if r is not None else True
             if r is not None:
                 radarr.delete(f'/api/v3/movie/{r["id"]}?deleteFiles=false&addImportExclusion=false')
-            radarr.post("/api/v3/movie", _add_body(k, hd_profile, ROOT_HD))
+            radarr.post("/api/v3/movie", _add_body(k, hd_profile, ROOT_HD, monitored=hd_monitored))
     raise RuntimeError("no progress")
 
 

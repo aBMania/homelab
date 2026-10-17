@@ -200,6 +200,16 @@ class MigrateTest(unittest.TestCase):
         self.assertEqual([m["monitored"] for m in list(radarr.movies.values())
                           + list(radarr4k.movies.values())], [False, False])
 
+    def test_4k_copy_added_unmonitored(self):
+        # Existing 4K files must not be "upgraded" (re-downloaded) by radarr-4k: the 4K copy is
+        # unmonitored; the HD twin keeps the source's monitored state so its 1080p gets searched.
+        run(self.radarr, self.radarr4k, 101)
+        k_post = next(c[2] for c in self.radarr4k.calls if c[:2] == ("POST", "/api/v3/movie"))
+        r_post = next(c[2] for c in self.radarr.calls if c[:2] == ("POST", "/api/v3/movie"))
+        self.assertEqual((k_post["monitored"], k_post["addOptions"]["monitor"]), (False, "none"))
+        self.assertEqual((r_post["monitored"], r_post["addOptions"]["monitor"]), (True, "movieOnly"))
+        self.assertFalse(next(iter(self.radarr4k.movies.values()))["monitored"])
+
     def test_skips_folder_collision(self):
         radarr, radarr4k = pair([movie(1, 101)],
                                 [movie(50, 999, root="/media/movies-4k", folder="SECRET-TITLE-1")])
