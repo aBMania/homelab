@@ -25,6 +25,10 @@ data:
         custom_format_groups:
           add:
             - trash_id: f8bf8eab4617f12dfdbd16303d8da245  # [Optional] Golden Rule HD
+              # Allow x265 at 1080p: smaller files, most MULTi releases are x265, and
+              # the GTX 960 decodes HEVC (would otherwise flag ~1000 files for replacement)
+              exclude:
+                - dc98083864ea246d05a42df0d05f81cc  # x265 (HD)
             - trash_id: 59f7ab9ff64d0026b011b985b1cc8670  # [Unwanted] Unwanted Formats French
 
     # sonarr/templates/french-multi-vo-bluray-web-1080p.yml
@@ -42,4 +46,8 @@ data:
         custom_format_groups:
           add:
             - trash_id: 158188097a58d7687dee647e04af0da3  # [Optional] Golden Rule HD
+              # Allow x265 at 1080p: smaller files, most MULTi releases are x265, and
+              # the GTX 960 decodes HEVC (would otherwise flag ~1000 files for replacement)
+              exclude:
+                - 47435ece6b99a0b477caf360e79ba0bb  # x265 (HD)
             - trash_id: a23c8675c79118544fd74153394fa589  # [Unwanted] Unwanted Formats French
