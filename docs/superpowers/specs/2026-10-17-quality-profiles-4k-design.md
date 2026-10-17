@@ -1,6 +1,6 @@
 # Quality profiles (French MULTi.VO) + 4K twin library: design
 
-Date: 2026-10-17. Status: draft, waiting for review.
+Date: 2026-10-17. Status: approved 2026-10-17.
 
 ## Goal
 
@@ -135,7 +135,10 @@ verified.
 **P2: Canary**
 - 5 movies and 2 series switched by hand to the new profiles, mixing VO, MULTi, French-original
   and 720p files.
-- For 3 days, check file CF scores, Activity → Queue, and decluttarr logs for unexpected grabs.
+- Immediately: check each file's CF score, and run an **Interactive Search** on each canary
+  item. It shows every candidate's score and whether Radarr/Sonarr would grab it, with nothing
+  downloaded.
+- Then 24 hours of Activity → Queue and decluttarr logs, for unexpected automatic (RSS) grabs.
 
 **P3: Bulk switch**
 - After the user reviews the no-VO list: Radarr and Sonarr Mass Editor → every item onto the
@@ -176,9 +179,9 @@ verified.
 - recyclarr: `--preview` before the first real sync, then the nightly log must show no `[ERR]`.
 - Per phase: queue size and grab counts from the aggregate script. Titles never get printed.
 
-## Decisions for review
+## Decisions
 
-- **P5 default = keep all 61 existing 4K files** as 4K versions and add 1080p twins. That's
+- **P5: keep all 61 existing 4K files** (approved) as 4K versions and add 1080p twins. That's
   the no-loss path, and the user prunes 4K versions afterwards. The alternative is to pick the
   movies that stay 4K first and convert the rest to 1080p only. That saves about 1.8 TB, but
   deletes files.
