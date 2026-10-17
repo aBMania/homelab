@@ -35,6 +35,9 @@ spec:
               # SONARR_API_KEY, RADARR_API_KEY
               - secretRef:
                   name: decluttarr-secret
+              # RADARR_4K_API_KEY
+              - secretRef:
+                  name: radarr-4k-secret
             env:
               TZ: Europe/Paris
               LOG_LEVEL: INFO
@@ -65,6 +68,8 @@ spec:
               RADARR: |
                 - base_url: "http://radarr.media.svc.cluster.local:7878"
                   api_key: "$(RADARR_API_KEY)"
+                - base_url: "http://radarr-4k.media.svc.cluster.local:7878"
+                  api_key: "$(RADARR_4K_API_KEY)"
             resources:
               requests:
                 cpu: 10m
