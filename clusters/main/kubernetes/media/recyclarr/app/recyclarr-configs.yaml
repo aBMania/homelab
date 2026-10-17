@@ -22,10 +22,13 @@ data:
           - trash_id: 2572ce3ea4eef1c19d59e0e20ed1cea7  # [French MULTi.VO] HD Bluray + WEB
             reset_unmatched_scores:
               enabled: true
-        # No Golden Rule HD group: x265 is allowed at 1080p (decided 2026-10-17)
         custom_format_groups:
           add:
             - trash_id: 59f7ab9ff64d0026b011b985b1cc8670  # [Unwanted] Unwanted Formats French
+          # Golden Rule HD is synced by default when not listed, which brings back
+          # x265 (HD) at -10000. Skip it: x265 is allowed at 1080p (decided 2026-10-17)
+          skip:
+            - f8bf8eab4617f12dfdbd16303d8da245  # [Optional] Golden Rule HD
 
       # radarr/templates/french-multi-vo-uhd-bluray-web.yml (4K twins, radarr-4k)
       radarr-uhd:
@@ -58,7 +61,10 @@ data:
           - trash_id: 4c48f506c1116a3a57ae33f12346bd15  # [French MULTi.VO] HD Bluray + WEB (1080p)
             reset_unmatched_scores:
               enabled: true
-        # No Golden Rule HD group: x265 is allowed at 1080p (decided 2026-10-17)
         custom_format_groups:
           add:
             - trash_id: a23c8675c79118544fd74153394fa589  # [Unwanted] Unwanted Formats French
+          # Golden Rule HD is synced by default when not listed, which brings back
+          # x265 (HD) at -10000. Skip it: x265 is allowed at 1080p (decided 2026-10-17)
+          skip:
+            - 158188097a58d7687dee647e04af0da3  # [Optional] Golden Rule HD
