@@ -1,0 +1,104 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# Pinchflat: downloads YouTube channels (yt-dlp) into /mnt/tank/media/youtube,
+# which Emby reads as a TV Shows library at /media/youtube.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pinchflat
+  namespace: media
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    defaultPodOptions:
+      # 568 = TrueNAS `apps` user, so files on the NFS share match Emby and the *arrs
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    controllers:
+      pinchflat:
+        # SQLite on a RWO volume: never run two pods at once
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              # v2025.9.26 was only published as `latest`; Renovate bumps the digest
+              repository: ghcr.io/kieraneglin/pinchflat
+              tag: latest@sha256:01b4f98aabaf3f5fe394213f7a32578c9e84e42080f52e2f8334021a4473b202
+            env:
+              TZ: Europe/Paris
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthcheck
+                    port: &port 8945
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+              readiness: *probe
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                # ffmpeg merges spike memory
+                memory: 1Gi
+    service:
+      app:
+        controller: pinchflat
+        ports:
+          http:
+            port: *port
+    ingress:
+      app:
+        annotations:
+          cert-manager.io/cluster-issuer: domain-0-le-prod
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          # Pinchflat has no real auth of its own: put it behind Authelia
+          traefik.ingress.kubernetes.io/router.middlewares: traefik-auth@kubernetescrd
+        hosts:
+          - host: &host youtube.${DOMAIN_0}
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - hosts:
+              - *host
+            secretName: pinchflat-tls
+    persistence:
+      config:
+        # SQLite database: kept on Longhorn, not NFS (SQLite locking over NFS is unsafe)
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        retain: true
+        globalMounts:
+          - path: /config
+      downloads:
+        type: nfs
+        server: ${NFS_HOST}
+        path: /mnt/tank/media/youtube
+        globalMounts:
+          - path: /downloads

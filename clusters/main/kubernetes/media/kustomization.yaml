@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - bazarr/ks.yaml
   - decluttarr/ks.yaml
+  - pinchflat/ks.yaml
   - prowlarr/ks.yaml
   - emby/ks.yaml
   - qbittorrent/ks.yaml
