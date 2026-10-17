@@ -115,6 +115,7 @@ spec:
               - "tvshows.${DOMAIN_0}"
               - "movies.${DOMAIN_0}"
               - "subtitles.${DOMAIN_0}"
+              - "requests.${DOMAIN_0}"
             policy: one_factor
             subject: group:user
           # Admins at home: password only
