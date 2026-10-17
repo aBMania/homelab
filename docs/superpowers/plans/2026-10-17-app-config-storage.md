@@ -43,6 +43,12 @@ auto-discover Longhorn mounters.
 - PVCs use `retain: true` / `helm.sh/resource-policy: keep`, as for radarr-4k.
 - No full Emby library refresh (see memory: it took the cluster down on 2026-10-17).
 
+## Order (updated 2026-10-18)
+
+radarr (done) → **emby** (it froze and got liveness-killed on 2026-10-17 while bulk-deleting items
+from `library.db` on NFS; it holds users and watched states) → sonarr → prowlarr → bazarr +
+jellyseerr. The task numbers below are kept as written; this is the execution order.
+
 ## Task 0: backups first (decided 2026-10-17)
 
 Today nothing is backed up: TrueNAS has no snapshot or replication tasks, and Longhorn has no
