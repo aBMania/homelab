@@ -1,6 +1,6 @@
 # App configs off NFS: implementation plan
 
-Date: 2026-10-17. Status: draft, waiting for review.
+Date: 2026-10-17. Status: Task 0 decided (2026-10-17); Tasks 1–5 waiting for review.
 
 ## Why
 
@@ -42,18 +42,36 @@ auto-discover Longhorn mounters.
 - PVCs use `retain: true` / `helm.sh/resource-policy: keep`, as for radarr-4k.
 - No full Emby library refresh (see memory: it took the cluster down on 2026-10-17).
 
-## Task 0: backups first
+## Task 0: backups first (decided 2026-10-17)
 
-Today neither side has backups: TrueNAS has no snapshot tasks, and Longhorn has no backup target.
-Moving configs into the VM disk makes that disk the only copy. Pick one before Task 1:
+Today nothing is backed up: TrueNAS has no snapshot or replication tasks, and Longhorn has no
+backup target. Moving configs into the VM disk makes that disk the only copy. So, before Task 1,
+the user creates these in TrueNAS (Data Protection; they need root):
 
-- **(a) TrueNAS periodic snapshots of `tank/talos`** (the VM's zvol): daily, kept 14 days.
-  Simple and crash-consistent for every Longhorn volume at once. A restore rolls back the whole
-  VM disk.
-- **(b) Longhorn recurring backups to S3** (the MinIO in `clusterenv`): per volume, restorable
-  one at a time. It needs a backup-target secret and a RecurringJob in git.
+**Periodic snapshot tasks:**
 
-Recommendation: **(a) now** (two clicks in TrueNAS), and **(b) later** for per-app restores.
+| Dataset | Recursive | Schedule | Keep | Covers |
+|---|---|---|---|---|
+| `tank/talos` (VM zvol, thin: 105 G used) | no | daily 03:00 | 14 days | etcd + every Longhorn volume (radarr-4k, pinchflat, the CNPG DBs, and the app configs after Tasks 1–4) |
+| `tank/apps` (24 G) | **yes, jellyseerr included** (user, 2026-10-17) | daily 03:15 | 14 days | the configs still on NFS (emby `sync`, bazarr, qbittorrent, jellyseerr, …) |
+
+No task for `tank/media`: upgrades replace files, so snapshots there would keep growing
+(the one-off `@pre-quality-migration` stays until the plan's cleanup).
+
+**Replication task (local, to the SSD pool):**
+- Sources `tank/talos` and `tank/apps` (recursive) → destination **`tank2/backup`**, using the
+  two snapshot tasks above; retention "same as source"; run after each snapshot.
+- Size: about 130 G against 444 G free on tank2.
+- What it protects against: losing the HDD pool, or a controller fault. Not the physical cases
+  (fire, theft, PSU): tank2 is in the same box and is a single disk. An off-box copy (USB disk or
+  a cloud bucket) of these ~130 G comes later.
+
+**Verify (Claude, read-only):** `midclt call pool.snapshottask.query` and `replication.query`
+list the tasks. After the first night: `zfs list -t snapshot` shows one per dataset, and
+`zfs list -r tank2/backup` exists and has roughly the source sizes.
+
+Snapshots of a running VM's disk are crash-consistent, like a power cut at that instant. etcd,
+SQLite and Postgres recover from that.
 
 ## Per-app cutover (Tasks 1–3: radarr, sonarr, prowlarr)
 
