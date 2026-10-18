@@ -86,11 +86,50 @@ class OutputTest(unittest.TestCase):
             "/api/v3/queue": {"totalRecords": 2},
             "/api/v3/history": {"records": []},
         })
+        for fmt in ("json", "text"):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                media_stats.main({"radarr": radarr, "sonarr": sonarr}, fmt=fmt)
+            self.assertNotIn("SECRET-TITLE", out.getvalue())
+        self.assertIn("queue 2", out.getvalue())
+
+
+class UnreachableTest(unittest.TestCase):
+    def test_unreachable_app_is_reported_not_fatal(self):
+        class Down:
+            def get(self, path):
+                raise ConnectionResetError(104, "Connection reset by peer")
+        radarr = FakeArr({"/api/v3/movie": [], "/api/v3/qualityprofile": [],
+                          "/api/v3/queue": {"totalRecords": 1}, "/api/v3/history": {"records": []}})
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            media_stats.main({"radarr": radarr, "sonarr": sonarr})
-        self.assertNotIn("SECRET-TITLE", out.getvalue())
-        self.assertIn('"queue": 2', out.getvalue())
+            media_stats.main({"sonarr": Down(), "radarr": radarr}, fmt="text")
+        self.assertIn("sonarr     unreachable (Connection reset by peer)", out.getvalue())
+        self.assertIn("radarr     0 items", out.getvalue())
+
+
+class FormatTest(unittest.TestCase):
+    STATS = {"radarr": {"items": 3, "with_file": 2, "size_tb": 1.5,
+                        "profiles": {"HD": 2, "Any": 1},
+                        "resolution": {2160: 1, 1080: 1, None: 1},
+                        "audio": {"vo": 1, "multi": 3},
+                        "queue": 4, "grabs_24h": 5}}
+
+    def test_text_has_one_block_per_app(self):
+        text = media_stats.format_text(self.STATS)
+        lines = text.splitlines()
+        self.assertTrue(lines[0].startswith("radarr"))
+        self.assertIn("3 items", lines[0])
+        self.assertIn("2 with file", lines[0])
+        self.assertIn("1.5 TB", lines[0])
+        self.assertIn("queue 4", lines[0])
+        self.assertIn("5 grabs/24h", lines[0])
+
+    def test_counts_sorted_descending_with_readable_labels(self):
+        text = media_stats.format_text(self.STATS)
+        self.assertIn("audio       multi 3 · vo 1", text)
+        self.assertIn("2160p 1", text)
+        self.assertIn("none 1", text)
 
 
 if __name__ == "__main__":

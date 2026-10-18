@@ -84,8 +84,12 @@ description = "Exit 0 if nobody is playing in Emby (maintenance gate); --wait MI
 run = "scripts/emby-idle.sh"
 
 [tasks."media:stats"]
-description = "Aggregate Radarr/Sonarr(/radarr-4k) stats: counts by profile, resolution, audio vs original language, queue, grabs in 24h (no titles)"
-run = "bash -c 'source scripts/arr.sh && python3 -I scripts/media_stats.py'"
+description = "Aggregate Radarr/Sonarr(/radarr-4k) stats: counts by profile, resolution, audio vs original language, queue, grabs in 24h (no titles). Readable text; --json for raw JSON"
+run = "bash -c 'source scripts/arr.sh && python3 -I scripts/media_stats.py \"$@\"' media-stats"
+
+[tasks."media:prioritize"]
+description = "Reorder the qBittorrent queue: Jellyseerr requests > newly available > 4K twins > upgrades (no titles). Dry run unless --apply"
+run = "bash -c 'source scripts/arr.sh && python3 scripts/media_prioritize.py \"$@\"' media-prioritize"
 
 [tasks."media:migrate-4k"]
 description = "Move movies with a 2160p file from radarr into radarr-4k (no re-download), then re-add them to radarr without search. Dry run unless --apply; --limit N (default 10)"
