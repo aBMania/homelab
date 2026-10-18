@@ -49,13 +49,12 @@ spec:
           filePath: /var/run/cilium/hubble/events.log
           fileMaxSizeMb: 10
           fileMaxBackups: 3
+          # Each filter is a JSON string (a Hubble FlowFilter); YAML objects crash the agent
           allowList:
-            - verdict:
-                - DROPPED
+            - '{"verdict":["DROPPED"]}'
           # IPv6 router solicitations on the LAN, dropped all the time and harmless
           denyList:
-            - protocol:
-                - ICMPv6
+            - '{"protocol":["ICMPv6"]}'
       relay:
         enabled: true
       ui:
