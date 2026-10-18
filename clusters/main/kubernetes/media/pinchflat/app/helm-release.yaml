@@ -46,6 +46,9 @@ spec:
             env:
               TZ: Europe/Paris
               MEDIA_PATH: /media/youtube
+              # One yt-dlp download at a time (default 2): the bulk re-download hit YouTube's
+              # "Sign in to confirm you're not a bot" and HTTP 429 limits
+              YT_DLP_WORKER_CONCURRENCY: "1"
             probes:
               liveness: &probe
                 enabled: true
