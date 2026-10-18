@@ -22,6 +22,16 @@ data:
           - trash_id: 2572ce3ea4eef1c19d59e0e20ed1cea7  # [French MULTi.VO] HD Bluray + WEB
             reset_unmatched_scores:
               enabled: true
+            # Guide qualities + HDTV and WEB 720p as fallbacks (2026-10-18): many French and older
+            # titles only exist as HDTV/720p. Below the 1080p cutoff, so they get upgraded later.
+            qualities:
+              - name: Bluray|WEB 1080p
+                qualities: [WEBDL-1080p, WEBRip-1080p, Bluray-1080p]
+              - name: HDTV-1080p
+              - name: Bluray-720p
+              - name: WEB 720p
+                qualities: [WEBDL-720p, WEBRip-720p]
+              - name: HDTV-720p
         custom_format_groups:
           add:
             - trash_id: 59f7ab9ff64d0026b011b985b1cc8670  # [Unwanted] Unwanted Formats French
@@ -61,6 +71,15 @@ data:
           - trash_id: 4c48f506c1116a3a57ae33f12346bd15  # [French MULTi.VO] HD Bluray + WEB (1080p)
             reset_unmatched_scores:
               enabled: true
+            # Guide qualities + HDTV as a fallback (2026-10-18): many French shows only air/exist as
+            # HDTV captures. Below the 1080p cutoff, so they get upgraded later.
+            qualities:
+              - name: Bluray|WEB 1080p
+                qualities: [WEBDL-1080p, WEBRip-1080p, Bluray-1080p]
+              - name: HDTV-1080p
+              - name: Bluray|WEB 720p
+                qualities: [WEBDL-720p, WEBRip-720p, Bluray-720p]
+              - name: HDTV-720p
         custom_format_groups:
           add:
             - trash_id: a23c8675c79118544fd74153394fa589  # [Unwanted] Unwanted Formats French
