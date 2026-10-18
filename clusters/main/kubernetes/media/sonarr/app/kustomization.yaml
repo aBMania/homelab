@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - helm-release.yaml
   - sonarr-config-pvc.yaml
+  - sonarr-data-pvc.yaml
