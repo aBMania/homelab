@@ -21,7 +21,8 @@ done
 filters=(--verdict DROPPED ${ns:+--namespace "$ns"} "${extra[@]}")
 
 if [ -n "$follow" ]; then
-  exec hubble observe -P --follow -o compact "${filters[@]}"
+  # Same as the export's denyList: IPv6 neighbour/router discovery, dropped all the time and harmless
+  exec hubble observe -P --follow -o compact "${filters[@]}" --not --protocol ICMPv6
 fi
 
 # Oldest first: rotated backups (events-<time>.log), then the current file
