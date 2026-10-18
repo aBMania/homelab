@@ -58,9 +58,8 @@ spec:
     persistence:
       config:
         enabled: true
-        type: nfs
-        path: /mnt/tank/apps/authelia
-        server: ${NFS_HOST}
+        type: pvc
+        existingClaim: authelia-data
     workload:
       main:
         replicas: 1
