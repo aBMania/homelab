@@ -23,6 +23,7 @@ for r in json.load(open(os.environ["FAKE_RULES"])):
 
 OK_RULES = [
     {"match": "gh pr view 42 --json state", "out": "MERGED"},
+    {"match": "statusCheckRollup --jq length", "out": "5"},
     {"match": "gh pr view 42 --json statusCheckRollup", "out": "0"},
     {"match": "get pvc app-data", "out": "app-data"},
     {"match": "logs app-data-rsync-pass2", "out": "files src=10 dst=10\n"},
@@ -35,7 +36,7 @@ OK_RULES = [
 
 
 class MoveVolume(unittest.TestCase):
-    def run_move(self, rules, *extra, idle="true"):
+    def run_move(self, rules, *extra, idle="true", env_extra=None):
         d = tempfile.mkdtemp()
         for b in ("kubectl", "flux", "gh"):
             p = os.path.join(d, b)
@@ -44,7 +45,7 @@ class MoveVolume(unittest.TestCase):
         log, rf = os.path.join(d, "log"), os.path.join(d, "rules.json")
         json.dump(rules, open(rf, "w"))
         env = dict(os.environ, PATH=d + ":" + os.environ["PATH"], FAKE_LOG=log, FAKE_RULES=rf,
-                   EMBY_IDLE_CMD=idle, MOVE_POLL="0", MOVE_STATE_DIR=d)
+                   EMBY_IDLE_CMD=idle, MOVE_POLL="0", MOVE_STATE_DIR=d, **(env_extra or {}))
         r = subprocess.run(["bash", SCRIPT, "media", "app", "app", "pvc:app-config", "app-data", "42", *extra],
                            env=env, capture_output=True, text=True, timeout=60)
         calls = open(log).read().splitlines() if os.path.exists(log) else []
@@ -76,6 +77,22 @@ class MoveVolume(unittest.TestCase):
     def test_red_checks_abort_before_merge(self):
         rules = [{"match": "select(.conclusion", "out": "1"}] + OK_RULES  # checks done, one failed
         r, calls = self.run_move(rules)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(any(c.startswith("gh pr merge") for c in calls))
+        self.assertTrue(any(c.startswith("flux resume hr -n media app") for c in calls))
+
+    def test_refused_merge_aborts_and_resumes(self):
+        rules = [{"match": "gh pr merge", "rc": 1}, {"match": "gh pr view 42 --json state", "out": "OPEN"}] + OK_RULES
+        r, calls = self.run_move(rules)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("not merged", r.stderr)
+        self.assertTrue(any(c.startswith("flux resume hr -n media app") for c in calls))
+        self.assertFalse(any("--replicas=0" in c for c in calls))
+
+    def test_waits_for_checks_to_exist(self):
+        # no check registered yet: must not merge (times out instead, then aborts and resumes)
+        rules = [{"match": "statusCheckRollup --jq length", "out": "0"}] + OK_RULES
+        r, calls = self.run_move(rules, env_extra={"MOVE_CHECKS_TIMEOUT": "1"})
         self.assertNotEqual(r.returncode, 0)
         self.assertFalse(any(c.startswith("gh pr merge") for c in calls))
         self.assertTrue(any(c.startswith("flux resume hr -n media app") for c in calls))
