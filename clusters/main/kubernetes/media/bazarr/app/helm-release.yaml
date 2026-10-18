@@ -59,8 +59,7 @@ spec:
                 - path: /
                   pathType: Prefix
       persistence:
-        # Longhorn PVC (bazarr-config-pvc.yaml): SQLite WAL freezes on NFS. The old NFS data in
-        # /mnt/tank/apps/bazarr is kept untouched as the rollback copy (storage plan).
+        # PVC bazarr-data on the SSD data disk (local-data, bazarr-data-pvc.yaml): SQLite WAL freezes on NFS
         config:
           enabled: true
           type: pvc

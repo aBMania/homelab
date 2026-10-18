@@ -45,8 +45,7 @@ spec:
                 - path: /
                   pathType: Prefix
       persistence:
-        # Longhorn PVC (radarr-config-pvc.yaml): SQLite WAL freezes on NFS. The old NFS data in
-        # /mnt/tank/apps/radarr is kept untouched as the rollback copy (plan Task 1).
+        # PVC radarr-data on the SSD data disk (local-data, radarr-data-pvc.yaml): SQLite WAL freezes on NFS
         config:
           enabled: true
           type: pvc

@@ -26,7 +26,7 @@ clusters/main/
     kustomization.yaml       # lists the top-level groups below
     flux-system/             # Flux install + encrypted bootstrap secrets (*.secret.yaml)
     kube-system/             # cilium, metrics-server, descheduler, nfd, kubelet-csr-approver
-    system/                  # cert-manager, longhorn, openebs, metallb, kyverno, volsync, cnpg, …
+    system/                  # cert-manager, openebs (+ local-data class), metallb, kyverno, volsync, cnpg, …
     core/                    # cluster-level config: issuers, metallb pools, blocky, kyverno policies, upgrade plans
     network/                 # traefik, cloudflare DDNS
     auth/                    # lldap + authelia
@@ -155,19 +155,23 @@ Public DNS for `DOMAIN_0` lives in Cloudflare and is managed by Terraform in `te
 - **Time-slicing gives 5 `nvidia.com/gpu` slots.** Pods request `nvidia.com/gpu: 1` with `runtimeClassName: nvidia`. The CUDA validation workload is off because CUDA 13 dropped Maxwell.
 
 **Shutting the node down safely (TrueNAS reboot, maintenance, `talos:apply`)**
-- `talosctl shutdown` stops pods in parallel. Longhorn can go away while Postgres is still writing: I/O errors, then a crash-recovery.
-- Use `mise run node:down [shutdown|reboot]` (`--dry-run` shows the plan). It auto-discovers everything mounting Longhorn volumes:
+- `talosctl shutdown` stops pods in parallel (Postgres can be killed mid-write), and its drain stalls on some pods.
+- Use `mise run node:down [shutdown|reboot]` (`--dry-run` shows the plan). It refuses to start while someone plays something in Emby (`mise run emby:idle`), then:
   - hibernates the CNPG clusters
-  - scales Deployments/StatefulSets to 0
-  - suspends CronJobs
+  - scales to 0 every Deployment/StatefulSet mounting a PVC **and** every one outside the infra namespaces (`NODE_DOWN_KEEP_NS` in the script)
+  - suspends CronJobs that mount PVCs
   - pauses Flux
-  - waits until every volume is detached, aborting and restoring on timeout
+  - waits until those pods are gone, aborting and restoring on timeout
   - only then optionally shuts down or reboots
 - Without an argument it only quiesces, e.g. before a TrueNAS reboot or `mise run talos:apply`.
 - Afterwards `mise run node:up` undoes it from `.state/quiesce.json` and runs the health checks.
 
-**Longhorn**
-- `concurrentAutomaticEngineUpgradePerNodeLimit` must stay > 0, so volume engines follow the manager. Before a minor Longhorn upgrade, check that every volume runs the current engine image.
+**Storage (since 2026-10-18, SSD Stage 2)**
+- App state (configs, SQLite, Postgres) lives on the Talos user volume `data` (`/var/mnt/data`, second VM disk = zvol `tank2/talos-data` on the SSD), served by the **default StorageClass `local-data`** (openebs hostpath, `Retain`). Media stays on NFS. Longhorn is gone.
+- New app state: a `<app>-data` PVC on `local-data` with `kustomize.toolkit.fluxcd.io/prune: disabled`. Never SQLite on NFS (WAL freezes).
+- Moving an app's data: `scripts/move-volume.sh <ns> <hr> <deploy> <pvc:name|nfs:path> <dest-pvc> <pr>` (two-pass rsync, Emby idle gate, merges the PR).
+- Backups: TrueNAS snapshots of `tank2/talos` and `tank2/talos-data` hourly (48 h) + daily (14 d), replicated to `tank/talos` and `tank/talos-data`. `local-data` keeps volumes after PVC deletion: clean the folder under `/var/mnt/data/openebs/` by hand.
+- `mise run talos:genconfig` fails since k8s 1.37 (talhelper contract v1.13): node changes go through `talosctl patch machineconfig` until the contract migration; keep `clusters/main/talos/` in sync by hand.
 
 **TrueCharts charts**
 - Newer `common` versions set `hostUsers: false` on k8s ≥ 1.33. Talos has user namespaces disabled, so pods fail with ENOSPC on `unshare`. Set `podOptions.hostUsers: true`.
