@@ -17,6 +17,8 @@ jq = "1.8.2"
 sops = "3.13.3"
 age = "1.3.2"
 terraform = "1.16.6"
+# Network: Hubble flow CLI (Cilium 1.20), used by `mise run net:drops`
+"aqua:cilium/hubble" = "1.20.2"
 
 [env]
 # Secrets for local tooling (e.g. CLOUDFLARE_API_TOKEN). The file is gitignored and never committed.
@@ -82,6 +84,10 @@ run = "scripts/node-up.sh"
 [tasks."emby:idle"]
 description = "Exit 0 if nobody is playing in Emby (maintenance gate); --wait MINUTES polls"
 run = "scripts/emby-idle.sh"
+
+[tasks."net:drops"]
+description = "Blocked network flows from Cilium/Hubble: logged drops, or live with --follow. Optional namespace; extra hubble flags after --"
+run = "bash scripts/net-drops.sh"
 
 [tasks."media:stats"]
 description = "Aggregate Radarr/Sonarr(/radarr-4k) stats: counts by profile, resolution, audio vs original language, queue, grabs in 24h (no titles). Readable text; --json for raw JSON"

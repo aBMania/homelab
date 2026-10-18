@@ -40,6 +40,22 @@ spec:
     # (or AUDIT while a policy runs in audit mode), and the UI at hubble. for admins
     hubble:
       enabled: true
+      # The in-memory flow buffer only holds seconds here (qBittorrent traffic), so dropped flows
+      # are also written to a file for `mise run net:drops` (hours of history). It lives in the
+      # node's RAM-backed /var/run: kept small, and lost on reboot.
+      export:
+        static:
+          enabled: true
+          filePath: /var/run/cilium/hubble/events.log
+          fileMaxSizeMb: 10
+          fileMaxBackups: 3
+          allowList:
+            - verdict:
+                - DROPPED
+          # IPv6 router solicitations on the LAN, dropped all the time and harmless
+          denyList:
+            - protocol:
+                - ICMPv6
       relay:
         enabled: true
       ui:
