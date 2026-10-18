@@ -108,7 +108,9 @@ if ! $EMBY_IDLE_CMD >/dev/null 2>&1; then
   run flux resume hr -n "$ns" "$hr" >/dev/null; exit 1
 fi
 run kubectl -n "$ns" scale "deploy/$deploy" --replicas=0 >/dev/null
-[ $DRY = 1 ] || wait_for 300 bash -c "[ -z \"\$(kubectl -n $ns get pods -l app.kubernetes.io/instance=$hr -o name 2>/dev/null)\" ]" || true
+# the Deployment's own selector: sibling Deployments of the release (e.g. emby-broadcastproxy) keep running
+sel=$(kubectl -n "$ns" get deploy "$deploy" -o go-template='{{range $k, $v := .spec.selector.matchLabels}}{{$k}}={{$v}},{{end}}' 2>/dev/null); sel=${sel%,}
+[ $DRY = 1 ] || wait_for 300 bash -c "[ -z \"\$(kubectl -n $ns get pods -l $sel -o name 2>/dev/null)\" ]" || true
 log "app stopped"
 out=$(rsync_pass pass2 yes); log "pass2: $out"
 s=$(sed -n 's/.*src=\([0-9]*\).*/\1/p' <<<"$out"); d=$(sed -n 's/.*dst=\([0-9]*\).*/\1/p' <<<"$out")

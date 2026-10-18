@@ -29,6 +29,7 @@ OK_RULES = [
     {"match": "logs app-data-rsync-pass2", "out": "files src=10 dst=10\n"},
     {"match": "logs app-data-rsync-pass1", "out": "files src=10 dst=9\n"},
     {"match": "get pods -l", "out": ""},
+    {"match": "matchLabels", "out": "app.kubernetes.io/instance=app,app.kubernetes.io/name=app,"},
     {"match": "-o jsonpath={.status.phase}", "out": "Succeeded"},
     {"match": "get deploy app -o jsonpath", "out": "app-data"},
     {"match": "get secret cluster-config", "out": "MTAuMC4wLjE="},  # 10.0.0.1
@@ -103,6 +104,13 @@ class MoveVolume(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertFalse(any(c.startswith("gh pr merge") for c in calls))
         self.assertTrue(any(c.startswith("flux resume hr -n media app") for c in calls))
+
+    def test_waits_only_for_the_deployments_pods(self):
+        r, calls = self.run_move(OK_RULES)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        waits = [c for c in calls if "get pods -l" in c]
+        self.assertTrue(waits)
+        self.assertTrue(all("app.kubernetes.io/name=app" in c for c in waits), waits)
 
     def test_dry_run_changes_nothing(self):
         r, calls = self.run_move(OK_RULES, "--dry-run")
