@@ -60,19 +60,56 @@ class MoveVolume(unittest.TestCase):
                          ["flux suspend", "gh pr", "kubectl -n", "flux resume"])
         self.assertTrue(any("--replicas=0" in c for c in calls))
 
-    def test_emby_busy_never_stops_the_app(self):
+    def test_emby_busy_at_start_changes_nothing(self):
         r, calls = self.run_move(OK_RULES, idle="false")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("Emby busy", r.stderr)
+        self.assertFalse(any(c.startswith(("flux suspend", "gh pr merge")) or "--replicas=0" in c for c in calls))
+
+    def test_emby_busy_after_merge_keeps_hr_suspended(self):
+        # idle at start, busy at the stop: the HR already points at the new claim, so resuming
+        # would start the app on the pass-1 copy. It must stay suspended (app on its old volume).
+        d = tempfile.mkdtemp(); flag = os.path.join(d, "n"); idle = os.path.join(d, "idle")
+        open(idle, "w").write(f"#!/bin/bash\nn=$(cat {flag} 2>/dev/null || echo 0); echo $((n+1)) > {flag}; [ $n = 0 ]\n")
+        os.chmod(idle, 0o755)
+        r, calls = self.run_move(OK_RULES, idle=idle)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("rerun", r.stderr.lower())
         self.assertFalse(any("--replicas=0" in c for c in calls))
-        self.assertTrue(any(c.startswith("flux resume hr -n media app") for c in calls))  # back to normal, old claim
+        self.assertFalse(any(c.startswith("flux resume") for c in calls))
+
+    def test_failed_pass1_stops_before_the_app(self):
+        rules = [{"match": "logs app-data-rsync-pass1", "out": "rsync error: some files (code 23)\n"}] + OK_RULES
+        r, calls = self.run_move(rules)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("pass1 failed", r.stderr)
+        self.assertFalse(any("--replicas=0" in c for c in calls))
+        self.assertFalse(any(c.startswith("flux resume") for c in calls))
+
+    def test_pods_that_never_stop_block_pass2(self):
+        rules = [{"match": "get pods -l", "out": "pod/app-x"}] + OK_RULES
+        r, calls = self.run_move(rules, env_extra={"MOVE_STOP_TIMEOUT": "1"})
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("still running", r.stderr)
+        self.assertFalse(any("rsync-pass2" in c for c in calls))
+        self.assertFalse(any(c.startswith("flux resume") for c in calls))
+
+    def test_empty_selector_blocks_pass2(self):
+        rules = [{"match": "matchLabels", "out": ""}] + OK_RULES
+        r, calls = self.run_move(rules)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(any("rsync-pass2" in c for c in calls))
+
+    def test_exclude_option_is_gone(self):
+        r, _ = self.run_move(OK_RULES, "--exclude", "cache")
+        self.assertEqual(r.returncode, 2)
 
     def test_count_mismatch_stops_without_resume(self):
         rules = [{"match": "logs app-data-rsync-pass2", "out": "files src=10 dst=9\n"}] + OK_RULES
         r, calls = self.run_move(rules)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("counts differ", r.stderr)
-        self.assertIn("NOT resuming", r.stderr)
+        self.assertIn("SUSPENDED", r.stderr)
         self.assertFalse(any(c.startswith("flux resume") for c in calls))
 
     def test_red_checks_abort_before_merge(self):

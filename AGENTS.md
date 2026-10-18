@@ -97,19 +97,24 @@ If a HelmRelease shows `Stalled` / `RetriesExceeded`, Flux has stopped retrying 
 ## Talos / node
 
 - Node config lives in `clusters/main/talos/talconfig.yaml` and `patches/` (strategic-merge patches; Talos 1.13 configs are multi-document, so JSON6902 `op/path` patches no longer work). Variables come from `clusters/main/clusterenv.yaml`.
-- `mise run talos:genconfig` generates the machine config + `talosconfig` with talhelper (secrets decrypted in memory). `mise run talos:diff` dry-runs it against the live node; **always diff before `mise run talos:apply`**, which may reboot the node. The network is kept in the legacy v1alpha1 format via `patches/network.yaml`. Moving to the Talos 1.13+ multi-document network config (`networkInterfaces` in talconfig) is a deliberate change: it needs a reboot, so do it with console access.
+- **`talos:genconfig` is currently broken (k8s 1.37 vs the v1.13 talhelper contract): see the Storage section; node changes go through `talosctl patch machineconfig`.** Normally, `mise run talos:genconfig` generates the machine config + `talosconfig` with talhelper (secrets decrypted in memory). `mise run talos:diff` dry-runs it against the live node; **always diff before `mise run talos:apply`**, which may reboot the node. The network is kept in the legacy v1alpha1 format via `patches/network.yaml`. Moving to the Talos 1.13+ multi-document network config (`networkInterfaces` in talconfig) is a deliberate change: it needs a reboot, so do it with console access.
 - `mise run talos:backup` refreshes the encrypted live-config copy in `talos/backup/`. Run it after any change to the node.
 - Talos and Kubernetes versions are pinned in `talconfig.yaml` and `flux-system/flux/upgradesettings.yaml`. Upgrades run through system-upgrade-controller plans in `core/system-upgrade-controller-plans/`. Major bumps are deliberately not automerged.
 - The admin kubeconfig client certificate expires after a year: `mise run talos:kubeconfig`.
 
 ## Disaster recovery
 
-Rebuilding the node from scratch (needs `age.agekey` from its backup):
+The node's state lives in two SSD zvols: `tank2/talos` (OS disk: Talos, etcd, images) and `tank2/talos-data` (data disk: every app volume, Postgres included). Both are snapshotted hourly (48 h) and daily (14 d) **at the same minute** and replicated to `tank/talos` / `tank/talos-data` on the HDD pool.
 
-1. Boot the Talos ISO for the version in `talconfig.yaml` (factory.talos.dev, same schematic).
-2. `mise run talos:genconfig`, then `talosctl apply-config --insecure -n <node-ip> --file clusters/main/talos/generated/main-k8s-control-1.yaml`.
+**Preferred: roll both disks back together** (SSD lost, or a bad change). Pick the same snapshot timestamp on both zvols, restore them (`zfs rollback`, or `zfs send | zfs recv` onto a new SSD, or temporarily point the VM's two disk devices at the `tank/…` copies), boot, `mise run node:up`. etcd and the app data then match: PVs still point at their `/var/mnt/data/openebs/pvc-<uid>` folders.
+
+**Rebuilding the cluster from scratch** (new etcd; needs `age.agekey` from its backup) **loses the link to the app data**: `local-data` volumes are folders named after their PV (`pvc-<uid>`), and new PVCs get new, empty folders. LLDAP/Authelia users and every app config would start empty, and CNPG would `initdb` empty databases. Only do this if both disk rollbacks are impossible, and keep the old data disk attached:
+
+1. Boot the Talos ISO for the installed version (`TALOS_VERSION` in `flux-system/flux/upgradesettings.yaml`; factory.talos.dev, same schematic).
+2. Machine config: `mise run talos:genconfig` is broken while the talhelper contract is v1.13 (see Storage below). Use the encrypted copy of the live config instead: `mise exec -- sops -d clusters/main/talos/backup/k8s-control-1.machineconfig.sops.yaml > /tmp/mc.yaml`, `talosctl apply-config --insecure -n <node-ip> --file /tmp/mc.yaml`, then delete `/tmp/mc.yaml`.
 3. `talosctl --talosconfig clusters/main/talos/generated/talosconfig bootstrap`, then `mise run talos:kubeconfig`.
-4. `mise run cluster:bootstrap` installs Cilium and Flux and applies the secrets and the root Kustomizations. Flux rebuilds everything else. `--dry-run` tests it against a running cluster without changing anything.
+4. `mise run cluster:bootstrap` installs Cilium and Flux and applies the secrets and the root Kustomizations. Flux rebuilds the workloads with new, empty volumes. `--dry-run` tests it against a running cluster without changing anything.
+5. Restore the app data: for each app, stop it, copy the old `pvc-<old uid>` folder from the data disk into its new PV folder (a pod mounting both as hostPath, in an infra namespace), start it. Postgres: restore into the new CNPG cluster from the old instance's data folder (`pg_dump` from a temporary Postgres started on it) rather than copying files under a running cluster.
 
 ## Validation
 
