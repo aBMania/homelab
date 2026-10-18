@@ -1,0 +1,48 @@
+# Keep pods away from TrueNAS (${NFS_HOST}). Pod egress is masqueraded to the node IP, which is
+# the address the NFS exports trust, and NFS takes the claimed uid at face value: without this,
+# any pod could read/write the shares as uid 568 (confirmed with a probe pod, 2026-10-18).
+# NFS volumes are mounted by the node, not by pods, so they are not affected.
+#
+# Every pod except Traefik: no TrueNAS at all. Only adds this deny (no default-deny for the rest).
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: deny-pods-to-truenas
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: NotIn
+        values:
+          - traefik
+  enableDefaultDeny:
+    egress: false
+    ingress: false
+  egressDeny:
+    - toCIDR:
+        - ${NFS_HOST}/32
+---
+# Traefik: anything except TrueNAS, and TrueNAS only for its web UI (HTTPS on 444, the
+# truenas external-service). Allow rules add up; whatever isn't listed is dropped.
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: traefik-egress
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s:io.kubernetes.pod.namespace: traefik
+  egress:
+    # Backends, Authelia, the API server, DNS
+    - toEntities:
+        - cluster
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - ${NFS_HOST}/32
+    - toCIDR:
+        - ${NFS_HOST}/32
+      toPorts:
+        - ports:
+            - port: "444"
+              protocol: TCP
