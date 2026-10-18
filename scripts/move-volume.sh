@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
 # Move an app's data to a new PVC (SSD Stage 2): two-pass rsync, the app stopped only for pass 2.
-# Usage: scripts/move-volume.sh <ns> <helmrelease> <deployment> <source> <dest-pvc> <pr> [--exclude DIR]... [--dry-run]
+# Usage: scripts/move-volume.sh <ns> <helmrelease> <deployment> <source> <dest-pvc> <pr> [--dry-run]
 #   <source>  pvc:<name> (copied as root, owners kept) or nfs:<path> (as 568:568; NFS squashes root)
 #   <pr>      the PR that adds <dest-pvc> and points the HelmRelease at it; merged here once green
-# Flow: suspend HR → merge PR → reconcile → pass 1 (app running) → Emby idle? → scale to 0 →
-#       pass 2 --delete → file counts equal? → resume HR → rollout → deployment uses <dest-pvc>.
-# Stops without resuming if anything is off after the app was stopped (rollback = revert the PR).
-# Test overrides: EMBY_IDLE_CMD, MOVE_POLL (seconds between polls), MOVE_STATE_DIR,
+# Flow: Emby idle? → suspend HR → merge PR → reconcile → pass 1 (app running) → Emby idle? →
+#       scale to 0 → pass 2 --delete → file counts equal? → resume HR → rollout → uses <dest-pvc>.
+# Once the PR is merged the HelmRelease already points at <dest-pvc>: any failure from then on
+# leaves it SUSPENDED (resuming would start the app on an incomplete copy). Rerun to continue.
+# Test overrides: EMBY_IDLE_CMD, MOVE_POLL (seconds between polls), MOVE_STATE_DIR, MOVE_STOP_TIMEOUT,
 # MOVE_SAVE_MANIFESTS (append the rsync pod manifests to this file).
 set -euo pipefail
 ns=$1 hr=$2 deploy=$3 src=$4 dst=$5 pr=$6; shift 6
-DRY=0; excludes=()
-while [ $# -gt 0 ]; do
-  case "$1" in --dry-run) DRY=1;; --exclude) excludes+=("$2"); shift;; *) echo "unknown arg: $1" >&2; exit 2;; esac
-  shift
-done
+DRY=0
+for a in "$@"; do case "$a" in --dry-run) DRY=1;; *) echo "unknown arg: $a" >&2; exit 2;; esac; done
 cd "$(dirname "$0")/.."
 STATE=${MOVE_STATE_DIR:-.state}; mkdir -p "$STATE"
 POLL=${MOVE_POLL:-5}
@@ -39,7 +37,6 @@ rsync_pass() {
   local pass=$1 del=$2 pod="${dst}-rsync-$1" opts="-a --stats"
   [ "$del" = yes ] && opts="$opts --delete"
   [ "$uid" = 0 ] || opts="$opts --no-owner --no-group"
-  for d in "${excludes[@]}"; do opts="$opts --exclude=/$d/"; done
   local manifest
   manifest=$(cat <<EOF
 apiVersion: v1
@@ -78,7 +75,14 @@ EOF
 checks_pending() { gh pr view "$pr" --json statusCheckRollup --jq '[.statusCheckRollup[] | select(.status != "COMPLETED")] | length'; }
 checks_bad() { gh pr view "$pr" --json statusCheckRollup --jq '[.statusCheckRollup[] | select(.conclusion != "SUCCESS" and .conclusion != "SKIPPED" and .conclusion != "NEUTRAL")] | length'; }
 
+# hold <why>: stop after the merge without resuming the HelmRelease
+hold() {
+  log "STOP: $1. HelmRelease $ns/$hr left SUSPENDED, so the app stays on its old volume (scaled to 0 if it was stopped). Rerun this command to continue, or roll back: revert PR #$pr, then flux resume hr -n $ns $hr"
+  exit 1
+}
+
 log "start: $src -> pvc $dst (PR #$pr)"
+if ! $EMBY_IDLE_CMD >/dev/null 2>&1; then log "ABORT: Emby busy (or unreachable); nothing changed"; exit 1; fi
 run flux suspend hr -n "$ns" "$hr" >/dev/null
 merged=$(gh pr view "$pr" --json mergedAt --jq '.mergedAt // ""' 2>/dev/null || true)
 [ -n "$merged" ] && log "PR #$pr already merged (resuming)"
@@ -102,19 +106,20 @@ elif ! wait_for 300 reconcile; then
   log "ABORT: pvc $dst not created (app unchanged, HR suspended)"; exit 1
 fi
 
-out=$(rsync_pass pass1 no); log "pass1: $out"
-if ! $EMBY_IDLE_CMD >/dev/null 2>&1; then
-  log "ABORT: Emby busy (or unreachable); app left running on its old volume"
-  run flux resume hr -n "$ns" "$hr" >/dev/null; exit 1
-fi
+out=$(rsync_pass pass1 no || true); log "pass1: $out"
+grep -Eq '^files src=[0-9]+ dst=[0-9]+$' <<<"$out" || hold "pass1 failed ($out), app still running"
+$EMBY_IDLE_CMD >/dev/null 2>&1 || hold "Emby busy (or unreachable), app still running"
 run kubectl -n "$ns" scale "deploy/$deploy" --replicas=0 >/dev/null
 # the Deployment's own selector: sibling Deployments of the release (e.g. emby-broadcastproxy) keep running
-sel=$(kubectl -n "$ns" get deploy "$deploy" -o go-template='{{range $k, $v := .spec.selector.matchLabels}}{{$k}}={{$v}},{{end}}' 2>/dev/null); sel=${sel%,}
-[ $DRY = 1 ] || wait_for 300 bash -c "[ -z \"\$(kubectl -n $ns get pods -l $sel -o name 2>/dev/null)\" ]" || true
+sel=$(kubectl -n "$ns" get deploy "$deploy" -o go-template='{{range $k, $v := .spec.selector.matchLabels}}{{$k}}={{$v}},{{end}}' 2>/dev/null || true); sel=${sel%,}
+if [ $DRY = 0 ]; then
+  [ -n "$sel" ] || hold "deployment $deploy has no matchLabels selector: can't tell when its pods are gone"
+  wait_for "${MOVE_STOP_TIMEOUT:-300}" bash -c "[ -z \"\$(kubectl -n $ns get pods -l $sel -o name 2>/dev/null)\" ]" || hold "pods of $deploy still running after the scale-down"
+fi
 log "app stopped"
-out=$(rsync_pass pass2 yes); log "pass2: $out"
+out=$(rsync_pass pass2 yes || true); log "pass2: $out"
 s=$(sed -n 's/.*src=\([0-9]*\).*/\1/p' <<<"$out"); d=$(sed -n 's/.*dst=\([0-9]*\).*/\1/p' <<<"$out")
-if [ -z "$s" ] || [ "$s" != "$d" ]; then log "STOP: counts differ (src=$s dst=$d); NOT resuming"; exit 1; fi
+if [ -z "$s" ] || [ "$s" != "$d" ]; then hold "counts differ after pass 2 (src=$s dst=$d)"; fi
 run flux resume hr -n "$ns" "$hr" >/dev/null
 run kubectl -n "$ns" rollout status "deploy/$deploy" --timeout=600s >/dev/null
 claims=$(kubectl -n "$ns" get deploy "$deploy" -o jsonpath='{range .spec.template.spec.volumes[*]}{.persistentVolumeClaim.claimName} {end}')
