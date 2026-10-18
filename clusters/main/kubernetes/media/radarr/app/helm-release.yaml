@@ -50,7 +50,7 @@ spec:
         config:
           enabled: true
           type: pvc
-          existingClaim: radarr-config
+          existingClaim: radarr-data
         media:
           enabled: true
           type: nfs
