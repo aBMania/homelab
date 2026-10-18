@@ -142,6 +142,9 @@ def _counts(counts, kind):
 def format_text(stats):
     blocks = []
     for name, s in stats.items():
+        if "error" in s:
+            blocks.append(f"{name:<10} unreachable ({s['error']})")
+            continue
         head = [f"{s['items']} items", f"{s['with_file']} with file"]
         if "size_tb" in s:
             head.append(f"{s['size_tb']} TB")
@@ -156,7 +159,13 @@ def format_text(stats):
 def main(clients=None, fmt="text"):
     clients = clients if clients is not None else clients_from_env()
     now = datetime.now(timezone.utc)
-    stats = {name: collect(name, arr, now) for name, arr in clients.items()}
+    stats = {}
+    for name, arr in clients.items():
+        # One app down (restarting, scaled to 0 by node:down) shouldn't hide the others
+        try:
+            stats[name] = collect(name, arr, now)
+        except OSError as e:
+            stats[name] = {"error": getattr(e, "strerror", None) or str(e)}
     if fmt == "json":
         print(json.dumps(stats, indent=2, default=str))
     else:

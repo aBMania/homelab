@@ -94,6 +94,20 @@ class OutputTest(unittest.TestCase):
         self.assertIn("queue 2", out.getvalue())
 
 
+class UnreachableTest(unittest.TestCase):
+    def test_unreachable_app_is_reported_not_fatal(self):
+        class Down:
+            def get(self, path):
+                raise ConnectionResetError(104, "Connection reset by peer")
+        radarr = FakeArr({"/api/v3/movie": [], "/api/v3/qualityprofile": [],
+                          "/api/v3/queue": {"totalRecords": 1}, "/api/v3/history": {"records": []}})
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            media_stats.main({"sonarr": Down(), "radarr": radarr}, fmt="text")
+        self.assertIn("sonarr     unreachable (Connection reset by peer)", out.getvalue())
+        self.assertIn("radarr     0 items", out.getvalue())
+
+
 class FormatTest(unittest.TestCase):
     STATS = {"radarr": {"items": 3, "with_file": 2, "size_tb": 1.5,
                         "profiles": {"HD": 2, "Any": 1},
