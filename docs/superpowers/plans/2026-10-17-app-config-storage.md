@@ -1,6 +1,6 @@
 # App configs off NFS: implementation plan
 
-Date: 2026-10-17. Status: Task 0 decided (2026-10-17); Tasks 1–5 waiting for review.
+Date: 2026-10-17. Status: **done 2026-10-18** except the cleanup (Task 6, due 2026-11-01). See "Result" below.
 
 ## Why
 
@@ -42,6 +42,27 @@ auto-discover Longhorn mounters.
 - **The NFS data is copied, never moved or deleted**, until the 2-week rollback window is over.
 - PVCs use `retain: true` / `helm.sh/resource-policy: keep`, as for radarr-4k.
 - No full Emby library refresh (see memory: it took the cluster down on 2026-10-17).
+
+## Result (2026-10-18)
+
+| App | PR | PVC | Downtime | Verification |
+|---|---|---|---|---|
+| radarr | #992 | 5 Gi | ~15 min (single `cp -a`, before two-pass rsync) | counts identical, client + Emby tests OK |
+| emby | #998 | 10 Gi (+ `sync` on NFS) | ~4 min | users 18, libraries 4, API keys 5, played 1410: identical |
+| sonarr | #999 | 5 Gi | ~1 min | series/files/profiles/CFs/indexers identical |
+| prowlarr | #1000 | 2 Gi | ~1 min | indexers 6, apps 3 identical |
+| bazarr | #1001 | 2 Gi | ~1 min | movies 147, series 128 identical |
+| jellyseerr | #1002 | 1 Gi | ~1.5 min | servers, users 18, requests identical |
+
+Backups (Task 0) are in place: daily snapshots of `tank/talos` and `tank/apps`, replicated to
+`tank2/backup`; first replication 114 G.
+
+Found on the way:
+- The weekly **ZFS scrub of `tank`** (Sunday 00:00, ~12 h) starves the VM: the node went
+  NotReady ~03:00–03:19 UTC on 2026-10-18 and pods were evicted. Follow-up: throttle scrubs
+  (`zfs_vdev_scrub_max_active`) or move them to a quieter slot.
+- Pinchflat's VP9 downloads crashed Emby's FFmpeg 5.1 (see memory); fixed with codec preference
+  avc/m4a and the VP9 files deleted for re-download.
 
 ## Order (updated 2026-10-18)
 
