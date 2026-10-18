@@ -74,10 +74,15 @@ checks_bad() { gh pr view "$pr" --json statusCheckRollup --jq '[.statusCheckRoll
 log "start: $src -> pvc $dst (PR #$pr)"
 run flux suspend hr -n "$ns" "$hr" >/dev/null
 if [ $DRY = 0 ]; then
+  # mergeStateStatus CLEAN = required checks passed and nothing blocks the merge. Checks register
+  # one by one on a fresh PR, so "none pending" alone can be true too early.
+  if ! wait_for "${MOVE_CHECKS_TIMEOUT:-900}" bash -c "[ \"\$(gh pr view $pr --json mergeStateStatus --jq .mergeStateStatus)\" = CLEAN ]"; then
+    log "ABORT: PR #$pr not mergeable (checks pending or failing)"; flux resume hr -n "$ns" "$hr" >/dev/null; exit 1
+  fi
   wait_for 900 bash -c "[ \"\$(gh pr view $pr --json statusCheckRollup --jq '[.statusCheckRollup[] | select(.status != \"COMPLETED\")] | length')\" = 0 ]" || true
   if [ "$(checks_bad)" != 0 ]; then log "ABORT: PR #$pr checks not green"; flux resume hr -n "$ns" "$hr" >/dev/null; exit 1; fi
 fi
-run gh pr merge "$pr" --squash --delete-branch >/dev/null 2>&1
+run gh pr merge "$pr" --squash --delete-branch >/dev/null 2>&1 || true  # checked just below
 if [ $DRY = 0 ] && [ "$(gh pr view "$pr" --json state --jq .state)" != MERGED ]; then
   log "ABORT: PR #$pr not merged"; flux resume hr -n "$ns" "$hr" >/dev/null; exit 1
 fi
