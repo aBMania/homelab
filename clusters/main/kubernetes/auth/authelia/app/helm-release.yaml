@@ -114,6 +114,12 @@ spec:
           - domain:
               - "requests.${DOMAIN_0}"
             policy: one_factor
+          # Support: password only, Radarr/Sonarr (admins match the rules below)
+          - domain:
+              - "movies.${DOMAIN_0}"
+              - "tvshows.${DOMAIN_0}"
+            policy: one_factor
+            subject: group:support
           # Family: password only, media/subtitle apps
           - domain:
               - "tvshows.${DOMAIN_0}"
