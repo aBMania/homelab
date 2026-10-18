@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - helm-release.yaml
   - prowlarr-config-pvc.yaml
+  - prowlarr-data-pvc.yaml
