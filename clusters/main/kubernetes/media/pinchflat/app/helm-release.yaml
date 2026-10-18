@@ -100,11 +100,8 @@ spec:
             secretName: pinchflat-tls
     persistence:
       config:
-        # SQLite database: kept on Longhorn, not NFS (SQLite locking over NFS is unsafe)
-        type: persistentVolumeClaim
-        accessMode: ReadWriteOnce
-        size: 1Gi
-        retain: true
+        # SQLite database on the SSD data disk (PVC pinchflat-data, local-data), never NFS
+        existingClaim: pinchflat-data
         globalMounts:
           - path: /config
       media:
