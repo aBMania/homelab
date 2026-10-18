@@ -30,8 +30,9 @@ nodes:
   - hostname: k8s-control-1
     ipAddress: ${MASTER1IP}
     controlPlane: true
+    # OS disk (500G). The data disk (120G, patches/data-volume.yaml) must never match.
     installDiskSelector:
-      size: <= 1600GB
+      size: ">= 300GB"
     schematic:
       customization:
         extraKernelArgs:
@@ -46,6 +47,7 @@ nodes:
     patches:
       - "@./patches/nvidia.yaml"
       - "@./patches/network.yaml"
+      - "@./patches/data-volume.yaml"
 controlPlane:
   patches:
     - '@./patches/controlplane.yaml'
