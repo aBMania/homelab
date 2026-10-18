@@ -65,7 +65,7 @@ spec:
         # Old Radarr/Sonarr hostnames: send people to Jellyseerr instead.
         # Not permanent, so browsers don't cache it if the names get reused.
         - name: requests-redirect
-          regex: ^https?://(movies|tvshows)\.${DOMAIN_0}(/.*)?$
+          regex: (?i)^https?://(movies|tvshows)\.${DOMAIN_0}(:\d+)?(/.*)?$
           replacement: https://requests.${DOMAIN_0}/
           permanent: false
     ingress:

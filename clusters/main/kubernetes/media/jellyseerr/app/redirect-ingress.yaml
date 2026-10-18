@@ -1,5 +1,6 @@
 # Old Radarr/Sonarr hostnames (now radarr./sonarr.): the traefik `requests-redirect`
-# middleware sends them to Jellyseerr. The backend is never reached.
+# middleware sends them to Jellyseerr. Anything the redirect doesn't match still goes
+# through Authelia before reaching the backend.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,7 +11,7 @@ metadata:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     # Without it Traefik builds the router without TLS and HTTPS requests get a 404
     traefik.ingress.kubernetes.io/router.tls: "true"
-    traefik.ingress.kubernetes.io/router.middlewares: traefik-requests-redirect@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-requests-redirect@kubernetescrd,traefik-auth@kubernetescrd
 spec:
   rules:
     - host: movies.${DOMAIN_0}
