@@ -86,7 +86,6 @@ spec:
     persistence:
       data:
         enabled: true
-        type: nfs
-        path: /mnt/tank/apps/lldap
+        type: pvc
+        existingClaim: lldap-data
         mountPath: /data
-        server: ${NFS_HOST}
