@@ -1,13 +1,14 @@
 # Talos user volume on the second VM disk (zvol tank2/talos-data, 120G): app state for the
 # local-data StorageClass (openebs hostpath under /var/mnt/data/openebs).
-# The OS disk is 500G: match only disks below 300G that aren't the system disk.
+# Match only virtio disks: Longhorn's iSCSI volumes also show up as disks (sdX, ~107G) and must
+# never match. Among virtio disks, the OS disk (500G) is excluded by system_disk and by size.
 # See docs/superpowers/specs/2026-10-18-ssd-storage-design.md (Stage 2).
 apiVersion: v1alpha1
 kind: UserVolumeConfig
 name: data
 provisioning:
   diskSelector:
-    match: disk.size < 300u * GB && !system_disk
+    match: disk.transport == "virtio" && !system_disk && disk.size < 300u * GB
   minSize: 100GiB
   grow: true
 filesystem:
