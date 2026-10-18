@@ -47,14 +47,12 @@ spec:
                 - path: /
                   pathType: Prefix
       persistence:
-        # SQLite (WAL mode) on a Longhorn volume, not NFS: on NFS the Servarr apps freeze for
+        # SQLite (WAL mode) on the SSD data disk (PVC radarr-4k-data, local-data), never NFS: on NFS the Servarr apps freeze for
         # minutes and get killed by the liveness probe (radarr-4k: 14 restarts in 3 h)
         config:
           enabled: true
           type: pvc
-          storageClass: longhorn
-          size: 1Gi
-          retain: true
+          existingClaim: radarr-4k-data
         media:
           enabled: true
           type: nfs
