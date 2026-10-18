@@ -60,7 +60,10 @@ fail=0
 chk() { if [ "$2" = ok ]; then log "  OK   $1"; else log "  FAIL $1: $2"; fail=1; fi; }
 np=$(kubectl get pods -A --no-headers | awk '$4!="Running" && $4!="Completed" && $4!="Succeeded"{printf "%s/%s ",$1,$2}'); chk pods "${np:-ok}"
 cn=$(kubectl get clusters.postgresql.cnpg.io -A -o json | jq -r '[.items[] | select(.status.readyInstances != .spec.instances) | .metadata.name] | join(" ")'); chk postgres "${cn:-ok}"
-lh=$(kubectl -n longhorn-system get volumes.longhorn.io -o json | jq -r '[.items[] | select(.status.robustness != "healthy") | .metadata.name] | join(" ")'); chk longhorn "${lh:-ok}"
+# Longhorn (until it's removed): only attached volumes count; detached ones (old copies) are "unknown"
+if kubectl get crd volumes.longhorn.io >/dev/null 2>&1; then
+  lh=$(kubectl -n longhorn-system get volumes.longhorn.io -o json | jq -r '[.items[] | select(.status.state == "attached" and .status.robustness != "healthy") | .metadata.name] | join(" ")'); chk longhorn "${lh:-ok}"
+fi
 hr=$(kubectl get hr -A -o json | jq -r '[.items[] | select(([.status.conditions[]? | select(.type=="Ready")][0].status) != "True") | "\(.metadata.namespace)/\(.metadata.name)"] | join(" ")'); chk helmreleases "${hr:-ok}"
 gpu=$(kubectl -n media exec deploy/emby -- nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1); chk "gpu in emby" "$([ -n "$gpu" ] && echo ok || echo 'nvidia-smi failed')"
 vpn=$(kubectl -n media exec deploy/qbittorrent -c qbittorrent-gluetun -- wget -qO- http://127.0.0.1:8000/v1/portforward 2>/dev/null | grep -c '"port":[1-9]' || true); chk "vpn port forward" "$([ "$vpn" = 1 ] && echo ok || echo 'no forwarded port yet')"

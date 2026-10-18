@@ -72,7 +72,7 @@ description = "Disaster recovery: install Cilium + Flux on a fresh cluster and h
 run = "scripts/bootstrap.sh"
 
 [tasks."node:down"]
-description = "Quiesce Longhorn consumers (CNPG hibernation, scale to 0, Flux paused) before a node shutdown/reboot; [shutdown|reboot] [--dry-run]"
+description = "Quiesce the apps (Emby idle check, CNPG hibernation, apps scaled to 0, Flux paused) before a node shutdown/reboot; [shutdown|reboot] [--dry-run]"
 run = "scripts/node-down.sh"
 
 [tasks."node:up"]
