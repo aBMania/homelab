@@ -63,7 +63,7 @@ spec:
         config:
           enabled: true
           type: pvc
-          existingClaim: emby-config
+          existingClaim: emby-data
           mountPath: /config
         # Converted copies for Emby's "sync/download" feature: big plain files, fine on NFS
         sync:

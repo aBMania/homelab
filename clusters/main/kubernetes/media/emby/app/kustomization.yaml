@@ -4,3 +4,4 @@ resources:
   - helmrelease.yaml
   - emby-config-pvc.yaml
   - emby-maintenance.secret.yaml
+  - emby-data-pvc.yaml
