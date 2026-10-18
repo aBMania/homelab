@@ -106,9 +106,8 @@ spec:
               mountPath: /scripts
       config:
         enabled: true
-        type: nfs
-        path: /mnt/tank/apps/qbittorrent
-        server: ${NFS_HOST}
+        type: pvc
+        existingClaim: qbittorrent-data
       media:
         enabled: true
         type: nfs
