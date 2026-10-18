@@ -1,0 +1,18 @@
+---
+# sonarr's /config (SQLite in WAL mode) on Longhorn instead of NFS (919 liveness failures / 26 restarts in 9 days).
+# See docs/superpowers/plans/2026-10-17-app-config-storage.md.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sonarr-config
+  namespace: media
+  annotations:
+    # keep the data if the PVC is ever removed from git (prune: true)
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
