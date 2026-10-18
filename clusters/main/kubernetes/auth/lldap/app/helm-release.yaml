@@ -81,7 +81,7 @@ spec:
     cnpg:
       main:
         cluster:
-          instances: 1
+          instances: 2
           singleNode: true
     persistence:
       data:
