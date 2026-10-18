@@ -18,6 +18,12 @@ spec:
     install:
         createNamespace: true
     values:
+      # SSD Stage 2: a new instance lands on the default class local-data; then switchover and
+      # back to 1 instance (single node: a second copy on the same disk protects nothing)
+      cnpg:
+        main:
+          cluster:
+            instances: 3
       workload:
         main:
           podSpec:
