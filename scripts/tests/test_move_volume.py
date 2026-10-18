@@ -97,10 +97,17 @@ class MoveVolume(unittest.TestCase):
         self.assertFalse(any(c.startswith("gh pr merge") for c in calls))
         self.assertTrue(any(c.startswith("flux resume hr -n media app") for c in calls))
 
+    def test_already_merged_pr_is_resumable(self):
+        rules = [{"match": "mergeStateStatus", "out": "UNKNOWN"}, {"match": "--json mergedAt", "out": "2026-10-18T18:00:00Z"}] + OK_RULES
+        r, calls = self.run_move(rules, env_extra={"MOVE_CHECKS_TIMEOUT": "1"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse(any(c.startswith("gh pr merge") for c in calls))
+        self.assertTrue(any(c.startswith("flux resume hr -n media app") for c in calls))
+
     def test_dry_run_changes_nothing(self):
         r, calls = self.run_move(OK_RULES, "--dry-run")
         self.assertEqual(r.returncode, 0, r.stderr)
-        writes = [c for c in calls if any(w in c for w in ("suspend", "resume", "merge", "scale", "apply", "delete"))]
+        writes = [c for c in calls if any(w in c for w in ("suspend", "resume", "pr merge", "scale", "apply", "delete"))]
         self.assertEqual(writes, [])
 
     def test_wrong_claim_after_rollout_fails(self):
