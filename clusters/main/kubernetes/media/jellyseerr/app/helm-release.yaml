@@ -45,8 +45,7 @@ spec:
                 - path: /
                   pathType: Prefix
       persistence:
-        # Longhorn PVC (jellyseerr-config-pvc.yaml): SQLite WAL freezes on NFS. The old NFS data in
-        # /mnt/tank/apps/jellyseerr is kept untouched as the rollback copy (storage plan).
+        # PVC jellyseerr-data on the SSD data disk (local-data, jellyseerr-data-pvc.yaml): SQLite WAL freezes on NFS
         config:
           enabled: true
           type: pvc

@@ -48,7 +48,7 @@ spec:
               MEDIA_PATH: /media/youtube
               # yt-dlp's work files on the same NFS dataset as MEDIA_PATH (outside every Emby
               # library): finishing a download is then a rename, not a second full copy, and
-              # downloads don't write into the container's /tmp on the VM's disk (etcd, Longhorn)
+              # downloads don't write into the container's /tmp on the VM's disk (etcd)
               TMPFILE_PATH: /media/youtube-tmp
               # One yt-dlp download at a time (default 2): the bulk re-download hit YouTube's
               # "Sign in to confirm you're not a bot" and HTTP 429 limits

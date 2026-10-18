@@ -29,6 +29,8 @@ machine:
       - bind
       - rshared
       - rw
+    # Longhorn is removed (2026-10-18); this mount and the longhorn-system PodSecurity exemption
+    # stay until the talhelper contract migration (live patches can't delete list items).
     - destination: /var/lib/longhorn
       type: bind
       source: /var/lib/longhorn
