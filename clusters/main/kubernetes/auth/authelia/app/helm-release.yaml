@@ -110,12 +110,21 @@ spec:
               - "science.${DOMAIN_0}"
             policy: two_factor
             subject: group:science
-          # Family: password only, media request/subtitle apps
+          # Jellyseerr: any LLDAP user, password only
+          - domain:
+              - "requests.${DOMAIN_0}"
+            policy: one_factor
+          # Support: password only, Radarr/Sonarr (admins match the rules below)
+          - domain:
+              - "movies.${DOMAIN_0}"
+              - "tvshows.${DOMAIN_0}"
+            policy: one_factor
+            subject: group:support
+          # Family: password only, media/subtitle apps
           - domain:
               - "tvshows.${DOMAIN_0}"
               - "movies.${DOMAIN_0}"
               - "subtitles.${DOMAIN_0}"
-              - "requests.${DOMAIN_0}"
             policy: one_factor
             subject: group:user
           # Admins at home: password only
