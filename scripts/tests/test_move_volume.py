@@ -137,7 +137,7 @@ class MoveVolume(unittest.TestCase):
         self.assertIn("path: /mnt/tank/apps/app", m)
         self.assertIn("runAsUser: 568", m)
         # as 568, rsync can't chgrp the new volume's root (owned by root): don't try
-        self.assertIn("--no-owner --no-group", m)
+        self.assertIn("--no-owner --no-group --omit-dir-times", m)
 
 
 if __name__ == "__main__":
