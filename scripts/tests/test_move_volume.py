@@ -23,7 +23,7 @@ for r in json.load(open(os.environ["FAKE_RULES"])):
 
 OK_RULES = [
     {"match": "gh pr view 42 --json state", "out": "MERGED"},
-    {"match": "statusCheckRollup --jq length", "out": "5"},
+    {"match": "mergeStateStatus", "out": "CLEAN"},
     {"match": "gh pr view 42 --json statusCheckRollup", "out": "0"},
     {"match": "get pvc app-data", "out": "app-data"},
     {"match": "logs app-data-rsync-pass2", "out": "files src=10 dst=10\n"},
@@ -89,9 +89,9 @@ class MoveVolume(unittest.TestCase):
         self.assertTrue(any(c.startswith("flux resume hr -n media app") for c in calls))
         self.assertFalse(any("--replicas=0" in c for c in calls))
 
-    def test_waits_for_checks_to_exist(self):
-        # no check registered yet: must not merge (times out instead, then aborts and resumes)
-        rules = [{"match": "statusCheckRollup --jq length", "out": "0"}] + OK_RULES
+    def test_waits_until_mergeable(self):
+        # required checks not done (or not registered yet): must not merge; times out, aborts, resumes
+        rules = [{"match": "mergeStateStatus", "out": "BLOCKED"}] + OK_RULES
         r, calls = self.run_move(rules, env_extra={"MOVE_CHECKS_TIMEOUT": "1"})
         self.assertNotEqual(r.returncode, 0)
         self.assertFalse(any(c.startswith("gh pr merge") for c in calls))
