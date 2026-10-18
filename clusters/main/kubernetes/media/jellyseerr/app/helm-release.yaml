@@ -50,4 +50,4 @@ spec:
         config:
           enabled: true
           type: pvc
-          existingClaim: jellyseerr-config
+          existingClaim: jellyseerr-data

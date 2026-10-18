@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - helm-release.yaml
   - jellyseerr-config-pvc.yaml
+  - jellyseerr-data-pvc.yaml
