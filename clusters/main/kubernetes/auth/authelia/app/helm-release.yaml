@@ -53,7 +53,7 @@ spec:
     cnpg:
       main:
         cluster:
-          instances: 2
+          instances: 1
           singleNode: true
     persistence:
       config:
