@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Aggregate stats of the Radarr/Sonarr libraries: counts only, never titles.
 
-Run through `mise run media:stats` (scripts/arr.sh sets up port-forwards and API keys).
+Run through `mise run media:stats [--json]` (scripts/arr.sh sets up port-forwards and API keys).
 """
 import json
 import os
+import sys
 import urllib.request
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -127,12 +128,40 @@ def clients_from_env():
             for name, (url, key) in URLS.items() if os.environ.get(key)}
 
 
-def main(clients=None):
+def _label(key, kind):
+    if key is None:
+        return "none"
+    return f"{key}p" if kind == "resolution" else str(key)
+
+
+def _counts(counts, kind):
+    ordered = sorted(counts.items(), key=lambda kv: (-kv[1], _label(kv[0], kind)))
+    return " · ".join(f"{_label(k, kind)} {v}" for k, v in ordered) or "-"
+
+
+def format_text(stats):
+    blocks = []
+    for name, s in stats.items():
+        head = [f"{s['items']} items", f"{s['with_file']} with file"]
+        if "size_tb" in s:
+            head.append(f"{s['size_tb']} TB")
+        head += [f"queue {s['queue']}", f"{s['grabs_24h']} grabs/24h"]
+        lines = [f"{name:<10} " + " · ".join(head)]
+        for kind in ("profiles", "resolution", "audio"):
+            lines.append(f"  {kind:<11} {_counts(s[kind], kind)}")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
+def main(clients=None, fmt="text"):
     clients = clients if clients is not None else clients_from_env()
     now = datetime.now(timezone.utc)
-    print(json.dumps({name: collect(name, arr, now) for name, arr in clients.items()},
-                     indent=2, default=str))
+    stats = {name: collect(name, arr, now) for name, arr in clients.items()}
+    if fmt == "json":
+        print(json.dumps(stats, indent=2, default=str))
+    else:
+        print(format_text(stats))
 
 
 if __name__ == "__main__":
-    main()
+    main(fmt="json" if "--json" in sys.argv[1:] else "text")

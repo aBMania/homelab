@@ -1,7 +1,8 @@
 #!/bin/bash
 # Sourced by the media:* mise tasks: port-forwards the *arr APIs to localhost and exports
 # their API keys from the cluster secrets (never printed). The forwards stop on EXIT.
-#   radarr -> localhost:17878, sonarr -> localhost:18989, radarr-4k -> localhost:17879 (if present)
+#   radarr -> localhost:17878, sonarr -> localhost:18989, radarr-4k -> localhost:17879 (if present),
+#   qbittorrent -> localhost:18080 (no key: its WebUI bypasses auth for localhost)
 _arr_pids=()
 _arr_forward() { # <svc> <local-port> <svc-port>
   kubectl -n media port-forward "svc/$1" "$2:$3" >/dev/null 2>&1 &
@@ -14,6 +15,7 @@ trap 'kill "${_arr_pids[@]}" 2>/dev/null' EXIT
 
 _arr_forward radarr 17878 7878
 _arr_forward sonarr 18989 8989
+_arr_forward qbittorrent 18080 10095
 RADARR_API_KEY=$(_arr_key decluttarr-secret RADARR_API_KEY)
 SONARR_API_KEY=$(_arr_key decluttarr-secret SONARR_API_KEY)
 export RADARR_API_KEY SONARR_API_KEY
@@ -24,7 +26,7 @@ if kubectl -n media get svc radarr-4k >/dev/null 2>&1; then
 fi
 
 # Wait until every forward answers (max ~10 s)
-for _port in 17878 18989 ${RADARR_4K_API_KEY:+17879}; do
+for _port in 17878 18989 18080 ${RADARR_4K_API_KEY:+17879}; do
   for _ in $(seq 1 20); do
     (exec 3<>"/dev/tcp/127.0.0.1/$_port") 2>/dev/null && break
     sleep 0.5
