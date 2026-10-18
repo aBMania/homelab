@@ -23,7 +23,7 @@ spec:
       cnpg:
         main:
           cluster:
-            instances: 3
+            instances: 1
       workload:
         main:
           podSpec:
