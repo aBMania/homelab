@@ -36,8 +36,29 @@ spec:
   values:
     # autoDirectNodeRoutes: true
     # routingMode: native
+    # Flow visibility for the network-policy rollout: `hubble observe --verdict DROPPED`
+    # (or AUDIT while a policy runs in audit mode), and the UI at hubble. for admins
     hubble:
-      enabled: false
+      enabled: true
+      relay:
+        enabled: true
+      ui:
+        enabled: true
+        ingress:
+          enabled: true
+          annotations:
+            cert-manager.io/cluster-issuer: domain-0-le-prod
+            traefik.ingress.kubernetes.io/router.entrypoints: websecure
+            # Without it Traefik builds the router without TLS and HTTPS requests get a 404
+            traefik.ingress.kubernetes.io/router.tls: "true"
+            # Authelia: only the admin rules match hubble. (default_policy deny)
+            traefik.ingress.kubernetes.io/router.middlewares: traefik-auth@kubernetescrd
+          hosts:
+            - hubble.${DOMAIN_0}
+          tls:
+            - secretName: hubble-ui-tls
+              hosts:
+                - hubble.${DOMAIN_0}
     cluster:
       name: ${CLUSTERNAME}
       id: 1
