@@ -16,7 +16,7 @@ jq = "1.8.2"
 # Secrets and DNS
 sops = "3.13.3"
 age = "1.3.2"
-terraform = "1.16.5"
+terraform = "1.16.6"
 
 [env]
 # Secrets for local tooling (e.g. CLOUDFLARE_API_TOKEN). The file is gitignored and never committed.
