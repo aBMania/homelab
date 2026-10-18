@@ -38,7 +38,7 @@ esac
 rsync_pass() {
   local pass=$1 del=$2 pod="${dst}-rsync-$1" opts="-a --stats"
   [ "$del" = yes ] && opts="$opts --delete"
-  [ "$uid" = 0 ] || opts="$opts --no-owner --no-group --omit-dir-times"  # as 568: the volume root is root-owned
+  [ "$uid" = 0 ] || opts="$opts --no-owner --no-group"
   for d in "${excludes[@]}"; do opts="$opts --exclude=/$d/"; done
   local manifest
   manifest=$(cat <<EOF
@@ -48,6 +48,12 @@ metadata: {name: ${pod}, namespace: ${ns}}
 spec:
   restartPolicy: Never
   securityContext: {runAsUser: ${uid}, runAsGroup: ${uid}}
+  initContainers:  # the new volume's root is root-owned; hand it to the copier (568 for NFS)
+    - name: own
+      image: ${IMG}
+      securityContext: {runAsUser: 0, runAsGroup: 0}
+      command: [sh, -c, 'chown ${uid}:${uid} /dst && chmod 775 /dst']
+      volumeMounts: [{name: dst, mountPath: /dst}]
   containers:
     - name: rsync
       image: ${IMG}
