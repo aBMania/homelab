@@ -92,6 +92,25 @@ class NodeDown(unittest.TestCase):
         self.assertIn("Emby", r.stderr)
         self.assertFalse(any(" scale " in c or " patch " in c or " annotate " in c for c in calls))
 
+    def test_unmanaged_pods_dont_block_the_wait(self):
+        fx = dict(CLUSTER)
+        ds = pod("media", "agent-x", "DaemonSet", "agent")
+        fx["get pods -A -o json|after"] = {"items": [pod("kube-system", "coredns-x", "ReplicaSet", "coredns-rs"), ds]}
+        fx["get pods -A -o json"] = {"items": CLUSTER["get pods -A -o json"]["items"] + [ds]}
+        r, _ = self.run_down(fixtures=fx)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_timeout_names_the_pods_left(self):
+        fx = dict(CLUSTER)
+        fx["get pods -A -o json|after"] = {"items": [pod("media", "proxy-x", "ReplicaSet", "proxy-rs")]}
+        r, _ = self.run_down(fixtures=fx)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("media/proxy-x", r.stderr)
+
+    def test_no_longhorn_left(self):
+        src = open(SCRIPT).read().lower()
+        self.assertNotIn("longhorn", src)
+
     def test_quiesce_scales_apps_and_saves_replicas(self):
         r, calls = self.run_down()
         self.assertEqual(r.returncode, 0, r.stderr)

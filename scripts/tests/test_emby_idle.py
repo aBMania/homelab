@@ -63,6 +63,16 @@ class EmbyIdle(unittest.TestCase):
         r = run(self.emby.url, "bad")
         self.assertEqual(r.returncode, 2)
 
+    def test_unreadable_key_exits_2(self):
+        import tempfile
+        d = tempfile.mkdtemp(); k = os.path.join(d, "kubectl")
+        open(k, "w").write("#!/bin/sh\necho 'error: forbidden' >&2\nexit 1\n"); os.chmod(k, 0o755)
+        env = {x: v for x, v in os.environ.items() if x != "EMBY_KEY_OVERRIDE"}
+        env.update(PATH=d + ":" + os.environ["PATH"], EMBY_URL=self.emby.url)
+        r = subprocess.run(["bash", SCRIPT], env=env, capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("no key", r.stderr)
+
     def test_unreachable_exits_2(self):
         r = run("http://127.0.0.1:9")
         self.assertEqual(r.returncode, 2)

@@ -12,7 +12,8 @@ WAIT=0
 case "${1:-}" in --wait) WAIT=${2:?--wait needs minutes};; "") ;; *) echo "unknown arg: $1" >&2; exit 2;; esac
 log() { echo "emby-idle: $*" >&2; }
 
-key=${EMBY_KEY_OVERRIDE:-$(kubectl -n media get secret emby-maintenance -o jsonpath='{.data.api-key}' 2>/dev/null | base64 -d)}
+if [ -n "${EMBY_KEY_OVERRIDE:-}" ]; then key=$EMBY_KEY_OVERRIDE
+else key=$(kubectl -n media get secret emby-maintenance -o jsonpath='{.data.api-key}' 2>/dev/null | base64 -d 2>/dev/null) || key=""; fi
 [ -n "$key" ] || { log "no key (secret media/emby-maintenance)"; exit 2; }
 url=${EMBY_URL:-}
 if [ -z "$url" ]; then
