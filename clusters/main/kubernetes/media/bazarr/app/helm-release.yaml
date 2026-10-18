@@ -64,7 +64,7 @@ spec:
         config:
           enabled: true
           type: pvc
-          existingClaim: bazarr-config
+          existingClaim: bazarr-data
         media:
           enabled: true
           type: nfs

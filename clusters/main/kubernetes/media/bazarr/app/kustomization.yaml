@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - helm-release.yaml
   - bazarr-config-pvc.yaml
+  - bazarr-data-pvc.yaml
