@@ -37,6 +37,6 @@ spec:
       replicas: 1
     persistence:
       # Set to false to pick another CSI as default
-      defaultClass: true
+      defaultClass: false  # local-data (openebs, SSD data disk) is the default since SSD Stage 2
       # Increase to 3 for a multi-node cluster
       defaultClassReplicaCount: 1
