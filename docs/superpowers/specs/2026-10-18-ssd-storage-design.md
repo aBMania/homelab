@@ -23,7 +23,7 @@ HDDs, so any big job on the media takes the control plane down.
 | App state (configs, SQLite, Postgres) | Longhorn (1 replica) inside the VM disk (HDD) | **separate SSD disk** (`tank2/talos-data`), `openebs-hostpath` local volumes (Stage 2) |
 | Media | NFS `tank/media` (HDD) | unchanged |
 | Emby transcode | NFS `tank2/apps/emby-transcode` (SSD) | unchanged |
-| Backups | daily snapshots of `tank/talos` + `tank/apps` → `tank2/backup` | **hourly** snapshots of the SSD disks → back to the HDD pool (into the old `tank/talos`, incrementally); `tank/apps` daily → `tank2/backup` as today; per-app backups (Stage 3) |
+| Backups | daily snapshots of `tank/talos` + `tank/apps` → `tank2/backup` | **hourly** snapshots of the SSD disks → back to the HDD pool (into the old `tank/talos`, incrementally); `tank/apps` daily → `tank2/backup` **excluding `tank/apps/emby`** until Stage 2, then removed; per-app backups (Stage 3) |
 
 Sizing: Longhorn data 31 G used (995 G provisioned), container images 24 G, VM disk 111 G on ZFS
 (246 G logical, 2.4× compression). SSD: 460 G, 343 G free today; the 114 G VM-disk copy already on it becomes the live disk. Planned: OS disk 120 G and data disk 120 G (thin zvols); together with
@@ -51,7 +51,8 @@ Prerequisite: check the SSD's SMART health and wear before it carries the live s
    - **Reverse the backup:** the old `tank/talos` shares the same snapshots, so a new task
      replicates `tank2/talos` → `tank/talos` **incrementally** (no full copy). The old disk is then
      both the rollback disk and the backup target. Snapshots of `tank2/talos`: hourly (keep 48 h)
-     + daily (keep 14 d). The `tank/apps` → `tank2/backup/apps` task stays as it is.
+     + daily (keep 14 d). The `tank/apps` → `tank2/backup/apps` task keeps running, but excludes
+     `tank/apps/emby` (~20 GB of Emby `sync` conversions, re-creatable).
    - Rollback: point the VM back at `tank/talos` (as of the switch, or a later replicated
      snapshot).
 2. **Separate data disk + local volumes** (drops Longhorn).
@@ -59,6 +60,9 @@ Prerequisite: check the SSD's SMART health and wear before it carries the live s
      `/var/mnt/data` → `openebs-hostpath` StorageClass rooted there, as the new default.
    - Apps move one by one with the two-pass rsync method (as on 2026-10-18); CNPG clusters via
      a new cluster bootstrapped from the old one (`pg_basebackup`) or a dump/restore.
+   - Also move the last small configs still on NFS to the data disk: **qBittorrent** (160 MB),
+     **Authelia** and **LLDAP** config files. Then `tank/apps` only holds Emby's re-creatable
+     `sync` folder and leftovers, so **its backup task is removed**.
    - `node:down`/`node:up` updated: they discover apps by Longhorn volumes today.
    - Then Longhorn is uninstalled. The OS disk shrinks to OS + images.
 3. **Per-app backups and off-site.**
