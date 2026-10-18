@@ -58,11 +58,19 @@ spec:
           runAsUser: 568
           runAsGroup: 568
       persistence:
+        # Longhorn PVC (emby-config-pvc.yaml): SQLite WAL freezes on NFS. The old NFS data in
+        # /mnt/tank/apps/emby is kept untouched as the rollback copy (storage plan).
         config:
           enabled: true
-          type: nfs
-          path: /mnt/tank/apps/emby
+          type: pvc
+          existingClaim: emby-config
           mountPath: /config
+        # Converted copies for Emby's "sync/download" feature: big plain files, fine on NFS
+        sync:
+          enabled: true
+          type: nfs
+          path: /mnt/tank/apps/emby/sync
+          mountPath: /config/sync
           server: ${NFS_HOST}
         media:
           enabled: true
