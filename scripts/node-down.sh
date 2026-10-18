@@ -15,7 +15,7 @@ STATE=${NODE_DOWN_STATE:-.state/quiesce.json}
 POLL=${NODE_DOWN_POLL:-10}
 EMBY_IDLE_CMD=${EMBY_IDLE_CMD:-scripts/emby-idle.sh --wait 30}
 # infra: left running until the power action (DNS, ingress, operators, storage, Flux)
-KEEP_NS=${NODE_DOWN_KEEP_NS:-kube-system kube-public kube-node-lease flux-system cert-manager cloudnative-pg gpu-operator kyverno longhorn-system metallb metallb-config openebs prometheus-operator snapshot-controller system system-upgrade traefik volsync kubernetes-reflector blocky}
+KEEP_NS=${NODE_DOWN_KEEP_NS:-kube-system kube-public kube-node-lease flux-system cert-manager cloudnative-pg gpu-operator kyverno metallb metallb-config openebs prometheus-operator snapshot-controller system system-upgrade traefik volsync kubernetes-reflector blocky}
 TALOSCONFIG=clusters/main/talos/generated/talosconfig
 DRY=0; ACTION=""
 for a in "$@"; do case "$a" in --dry-run) DRY=1;; shutdown|reboot) ACTION=$a;; *) echo "unknown arg: $a" >&2; exit 2;; esac; done
@@ -48,7 +48,7 @@ targets=$(echo "$plan" | jq -c '.[]' | while read -r t; do
     *) log "WARNING: unhandled owner $kind $ns/$name (left running)";;
   esac
 done | jq -sc 'unique')
-# CronJobs that mount Longhorn volumes, even if no Job runs right now (one could start mid-maintenance)
+# CronJobs that mount PVCs, even if no Job runs right now (one could start mid-maintenance)
 cronjobs=$(kubectl get cronjobs -A -o json | jq -c --argjson pvcs "$lh_pvcs" '
   [ .items[] | . as $c
     | select([.spec.jobTemplate.spec.template.spec.volumes[]? | .persistentVolumeClaim.claimName // empty] as $v
@@ -85,28 +85,32 @@ echo "$targets" | jq -c '.[]' | while read -r t; do
 done
 log "consumers stopped, waiting for their pods to be gone"
 
-# 4. Wait until no pod of a stopped workload (or mounting a PVC) is left, and, while Longhorn is
-#    still installed, every Longhorn volume is detached. Abort and restore on timeout.
-left() {
-  kubectl get pods -A -o json | jq --argjson keep "$keep" --argjson pvcs "$lh_pvcs" '[.items[] | . as $p
+# 4. Wait until no pod of a stopped workload (or mounting a PVC) is left. Pods node-down doesn't
+#    manage (DaemonSets, bare pods) don't count. Abort and restore on timeout.
+left() {  # prints ns/name of every pod still running that belongs to a target or mounts a PVC
+  kubectl get pods -A -o json | jq -r --argjson t "$targets" --argjson pvcs "$lh_pvcs" '.items[] | . as $p
     | select(.status.phase == "Running" or .status.phase == "Pending")
-    | select(((.metadata.namespace as $n | $keep | index($n)) | not)
-             or ([.spec.volumes[]? | .persistentVolumeClaim.claimName // empty] as $c
-                 | any($pvcs[]; .ns == $p.metadata.namespace and (.name as $n | $c | index($n)))))] | length'
+    | (.metadata.ownerReferences[0] // {}) as $o | .metadata.namespace as $ns
+    | select(
+        any($t[]; . as $w | $w.ns == $ns and (
+             ($w.kind == "Deployment" and $o.kind == "ReplicaSet" and ($o.name | startswith($w.name + "-")) and ($o.name | ltrimstr($w.name + "-") | test("^[a-z0-9]+$")))
+          or ($w.kind == "StatefulSet" and $o.kind == "StatefulSet" and $o.name == $w.name)
+          or ($w.kind == "cnpg" and $p.metadata.labels["cnpg.io/cluster"] == $w.name)))
+        or ([.spec.volumes[]? | .persistentVolumeClaim.claimName // empty] as $c
+            | any($pvcs[]; .ns == $ns and (.name as $n | $c | index($n)))))
+    | "\(.metadata.namespace)/\(.metadata.name)"'
 }
-lh_attached() { kubectl get crd volumes.longhorn.io >/dev/null 2>&1 || { echo 0; return; }
-  kubectl -n longhorn-system get volumes.longhorn.io -o json | jq '[.items[] | select(.status.state != "detached")] | length'; }
 for i in $(seq 1 90); do
-  pods=$(left </dev/null); attached=$(lh_attached </dev/null)
-  [ "$pods" = 0 ] && [ "$attached" = 0 ] && break
+  pods=$(left </dev/null)
+  [ -z "$pods" ] && break
   sleep "$POLL"
 done
-if [ "$pods" != 0 ] || [ "$attached" != 0 ]; then
-  log "TIMEOUT: $pods pod(s) still running, $attached Longhorn volume(s) attached; restoring everything"
+if [ -n "$pods" ]; then
+  log "TIMEOUT: still running: $(echo $pods); restoring everything"
   scripts/node-up.sh --no-wait-node
   exit 1
 fi
-log "all app pods gone${attached:+, Longhorn volumes detached}"
+log "all app pods gone"
 
 # 5. Optional power action
 if [ -n "$ACTION" ]; then

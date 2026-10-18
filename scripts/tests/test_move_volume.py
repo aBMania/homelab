@@ -100,6 +100,14 @@ class MoveVolume(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertFalse(any("rsync-pass2" in c for c in calls))
 
+    def test_failed_rollout_says_what_to_do(self):
+        rules = [{"match": "rollout status", "rc": 1}] + OK_RULES
+        r, _ = self.run_move(rules)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("STOP", r.stderr)
+        self.assertIn("rollout", r.stderr)
+        self.assertIn("revert PR #42", r.stderr)
+
     def test_exclude_option_is_gone(self):
         r, _ = self.run_move(OK_RULES, "--exclude", "cache")
         self.assertEqual(r.returncode, 2)

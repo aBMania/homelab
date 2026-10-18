@@ -121,7 +121,10 @@ out=$(rsync_pass pass2 yes || true); log "pass2: $out"
 s=$(sed -n 's/.*src=\([0-9]*\).*/\1/p' <<<"$out"); d=$(sed -n 's/.*dst=\([0-9]*\).*/\1/p' <<<"$out")
 if [ -z "$s" ] || [ "$s" != "$d" ]; then hold "counts differ after pass 2 (src=$s dst=$d)"; fi
 run flux resume hr -n "$ns" "$hr" >/dev/null
-run kubectl -n "$ns" rollout status "deploy/$deploy" --timeout=600s >/dev/null
+if ! run kubectl -n "$ns" rollout status "deploy/$deploy" --timeout=600s >/dev/null; then
+  log "STOP: rollout of $deploy on $dst failed (HelmRelease already resumed). Check the pod; to go back to the old volume: revert PR #$pr (Flux re-applies the old claim)"
+  exit 1
+fi
 claims=$(kubectl -n "$ns" get deploy "$deploy" -o jsonpath='{range .spec.template.spec.volumes[*]}{.persistentVolumeClaim.claimName} {end}')
 if [ $DRY = 0 ] && ! grep -qw "$dst" <<<"$claims"; then log "STOP: deployment volumes are '$claims', not $dst"; exit 1; fi
 log "OK: running on $dst"
