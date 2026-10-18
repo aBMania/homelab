@@ -30,8 +30,11 @@ nodes:
   - hostname: k8s-control-1
     ipAddress: ${MASTER1IP}
     controlPlane: true
+    # OS disk: zvol tank2/talos, serial set by TrueNAS (VM device 23). The serial keeps the 120G
+    # data disk (patches/data-volume.yaml) from ever matching.
     installDiskSelector:
       size: <= 1600GB
+      serial: TmT9s6rm
     schematic:
       customization:
         extraKernelArgs:
@@ -46,6 +49,7 @@ nodes:
     patches:
       - "@./patches/nvidia.yaml"
       - "@./patches/network.yaml"
+      - "@./patches/data-volume.yaml"
 controlPlane:
   patches:
     - '@./patches/controlplane.yaml'
