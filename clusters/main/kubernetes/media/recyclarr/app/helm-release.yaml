@@ -28,9 +28,8 @@ spec:
       persistence:
         config:
           enabled: true
-          type: nfs
-          path: /mnt/tank/apps/recyclarr
-          server: ${NFS_HOST}
+          type: pvc
+          existingClaim: recyclarr-data
         # recyclarr-configs.yaml (git); the old NFS recyclarr.yml was renamed to .bak
         recyclarr-configs:
           enabled: true
