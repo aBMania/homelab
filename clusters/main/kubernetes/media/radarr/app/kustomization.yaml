@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - helm-release.yaml
   - radarr-config-pvc.yaml
+  - radarr-data-pvc.yaml
