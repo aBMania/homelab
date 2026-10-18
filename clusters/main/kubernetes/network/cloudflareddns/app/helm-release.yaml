@@ -25,6 +25,12 @@ spec:
         remediation:
             retries: 3
     values:
+      # /config on the SSD data disk (PVC cloudflareddns-data, local-data), SSD Stage 2
+      persistence:
+        config:
+          enabled: true
+          type: pvc
+          existingClaim: cloudflareddns-data
       # Chart >= 14 (containerforge image) is configured with plain env vars; the old
       # cloudflareddns.api_token/host_zone_record values are ignored.
       workload:
