@@ -45,11 +45,12 @@ spec:
                 - path: /
                   pathType: Prefix
       persistence:
+        # Longhorn PVC (prowlarr-config-pvc.yaml): SQLite WAL freezes on NFS. The old NFS data in
+        # /mnt/tank/apps/prowlarr is kept untouched as the rollback copy (storage plan).
         config:
           enabled: true
-          type: nfs
-          path: /mnt/tank/apps/prowlarr
-          server: ${NFS_HOST}
+          type: pvc
+          existingClaim: prowlarr-config
         media:
           enabled: true
           type: nfs
