@@ -1,6 +1,8 @@
 # Keep pods off the home network: a compromised app can't scan or attack the router, laptops,
 # phones or the projector. Covers all private (RFC 1918) ranges, not only the LAN's 192.168.1.0/24.
-# Pod and service addresses are cluster identities, not CIDRs: in-cluster traffic is not matched.
+# In-cluster traffic is not matched: pods have their own identities (CIDR rules don't select them),
+# and Service/LoadBalancer IPs are translated to the backend pod before policy is checked.
+# Emby side effect if ever used: DLNA "Play To" a LAN renderer and UPnP port mapping on the router.
 # Measured before adding it: the only pod traffic to private ranges was Traefik → TrueNAS UI.
 #
 # Every pod except Traefik (see traefik-egress in truenas.yaml). Only adds this deny.
