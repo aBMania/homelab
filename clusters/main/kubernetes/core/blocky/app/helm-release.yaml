@@ -57,6 +57,23 @@ spec:
           - name: tls_servername
             value: cloudflare-dns.com
 
+    # The chart's list minus OpenDNS, which refuses every query from France since a court order
+    # (REFUSED + "Censored"): Blocky asks two upstreams at once and keeps the first answer, so
+    # OpenDNS's fast refusal made random lookups fail.
+    defaultUpstreams:
+      # Cloudflare
+      - 1.1.1.1
+      - 1.0.0.1
+      # Google
+      - 8.8.8.8
+      - 8.8.4.4
+      # Quad9
+      - 9.9.9.9
+      - 149.112.112.112
+      # ComodoSecure DNS
+      - 8.26.56.26
+      - 8.20.247.20
+
     # CANNOT be defined in above yaml section
     queryLog:
       # optional one of: mysql, postgresql, csv, csv-client. If empty, log to console only
