@@ -14,9 +14,11 @@ metadata:
     policies.kyverno.io/subject: Pod
 spec:
   validationActions: [Audit]
+  # Checked at admission only. With the background scan on, Kyverno's reports controller
+  # (1.19.1) used ~2.5 CPU cores and kept losing its leader lease (17 restarts).
   evaluation:
     background:
-      enabled: true
+      enabled: false
   matchConstraints:
     namespaceSelector:
       matchLabels:
