@@ -50,6 +50,12 @@ spec:
             - Remote-Name
             - Remote-Email
           trustForwardHeader: true
+      # Per client IP (Traefik sees real client IPs: externalTrafficPolicy Local). Slows password
+      # guessing and floods on the public login and apps; a page load stays well under the burst.
+      rateLimit:
+        - name: ratelimit
+          average: 20
+          burst: 100
       ipWhiteList:
         - name: local
           sourceRange:

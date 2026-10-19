@@ -41,6 +41,8 @@ spec:
         cert-manager.io/cluster-issuer: domain-0-le-prod
         traefik.ingress.kubernetes.io/router.entrypoints: websecure
         traefik.ingress.kubernetes.io/router.tls: "true"
+        # public without auth: per-IP rate limit against floods
+        traefik.ingress.kubernetes.io/router.middlewares: traefik-ratelimit@kubernetescrd
 
       hosts:
         - host: panio.${DOMAIN_0}
