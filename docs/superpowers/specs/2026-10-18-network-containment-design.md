@@ -74,7 +74,7 @@ Network policies are the main tool, but this design covers every layer that limi
 | Entry | Login |
 |---|---|
 | Router TCP 443/80 → Traefik (.110) | per app |
-| Router TCP 2222 → TrueNAS SSH :22 | key-only (rbossut, 6 keys, FULL_ADMIN) |
+| Router TCP 2222 → TrueNAS SSH :22 | key-only (one SSH user, 6 keys, FULL_ADMIN) |
 | `emby.` | Emby's own login (clients can't do Authelia) |
 | `panio.`, `suivi-saeg.` | none / own login (no Authelia middleware) |
 | `auth.` | Authelia itself |
@@ -141,7 +141,7 @@ All new cluster-wide and app-namespace policies live in `core/network-policies/`
   - **Found already in place (2026-10-19):** Jellyseerr `trustProxy: true`; Emby `IsBehindProxy: true`, `ProxyHeaderMode: AllAddresses`, LAN subnets `192.168.1.0/24` (pod IPs aren't "local"). Through Traefik this is safe: Traefik doesn't trust client-sent forwarded headers. But `AllAddresses` means Emby believes `X-Forwarded-For` from anyone who reaches it directly: a compromised pod could claim a LAN address. A4's ingress policy for `media` (Emby :8096 only from Traefik and the node) closes that; keep it a hard requirement there.
   - Side finding: Emby advertises `192.168.1.110` (Traefik) as its local address, so LAN apps first try `192.168.1.110:8096`, which Traefik doesn't serve (Cilium "no service backend" drops from a LAN device on 2026-10-19), then fall back to the public URL.
 - **C3 Traefik hardening**: a rate-limit middleware on the Authelia login and on public apps; optional geo/IP reputation filtering (e.g. a CrowdSec bouncer) as a later option.
-- **C4 TrueNAS SSH (2222 → :22)**: well configured; residual risk is rbossut's 6 FULL_ADMIN keys and direct exposure. rbossut connects from anywhere so far; **the user is asking him** (2026-10-19). Options: keep as is (documented risk), limit the source IPs (the Neufbox port-forward UI may not support source filtering), or move access to a VPN (WireGuard/Tailscale) and remove the forward.
+- **C4 TrueNAS SSH (2222 → :22)**: well configured; residual risk is the SSH user's 6 FULL_ADMIN keys and direct exposure. the SSH user connects from anywhere so far; **the user is asking them** (2026-10-19). Options: keep as is (documented risk), limit the source IPs (the Neufbox port-forward UI may not support source filtering), or move access to a VPN (WireGuard/Tailscale) and remove the forward.
 
 ### Track D: home network
 
@@ -185,7 +185,7 @@ A throwaway probe pod (busybox, temporary namespace, deleted at the end, prints 
 
 1. ~~panio~~: public, no auth (answered 2026-10-19). **suivi-saeg**: who uses it? Behind Authelia, LAN-only, or public on purpose?
 2. ~~media PSA~~: Kyverno policy with an exception for qBittorrent (answered 2026-10-19).
-3. **TrueNAS SSH**: from anywhere so far; the user is asking rbossut (keep / source-limit / VPN).
+3. **TrueNAS SSH**: from anywhere so far; the user is asking the SSH user (keep / source-limit / VPN).
 5. ~~Emby/Jellyseerr trusted proxy~~: yes, added as C2b (answered 2026-10-19).
 4. ~~Audit window for A2, A3~~: moot, audit mode dropped (it lifts every policy on the pod).
 
