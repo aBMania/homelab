@@ -24,6 +24,16 @@ spec:
       strategy: rollback
       retries: 3
   values:
+    defaultPodOptions:
+      # Doesn't use the Kubernetes API
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
     controllers:
       decluttarr:
         containers:
@@ -76,3 +86,14 @@ spec:
                 memory: 64Mi
               limits:
                 memory: 256Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+    persistence:
+      # It writes its log file to ./logs, which non-root can't create in the image
+      logs:
+        type: emptyDir
+        globalMounts:
+          - path: /app/logs
