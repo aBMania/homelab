@@ -91,7 +91,7 @@
 
 ### Task 5: Internet exposure decisions (C1, C4)
 
-Depends on the user's answers (design "Questions" 1 and 3).
+Depends on the user's answers (design "Questions" 1 and 3). `panio`: public without auth, no change (answered 2026-10-19). `suivi-saeg` and C4 still open.
 
 **Files (C1, if Authelia is chosen):**
 - Modify: `clusters/main/kubernetes/apps/panio/app/helm-release.yaml`, `clusters/main/kubernetes/apps/suivi-saeg/app/helm-release.yaml` (ingress annotation `traefik.ingress.kubernetes.io/router.middlewares: traefik-auth@kubernetescrd`, or `traefik-local@kubernetescrd` for LAN-only)
@@ -123,16 +123,17 @@ One PR per namespace, in this order: `media`, `panio`, `suivi-saeg`, `jupyter`, 
 
 ### Task 7: Pod Security levels (B3)
 
-Depends on the user's answer to design question 2 for `media`.
+App namespaces other than `media`: done in #1059 (enforced, pods restarted 2026-10-19). `media`: the user chose a Kyverno policy with an exception for qBittorrent (design B3).
 
 **Files:**
 - Modify: the `namespace.yaml` of each app namespace (labels `pod-security.kubernetes.io/enforce`, `.../warn`, `.../audit`)
-- (Option 1 for `media` only, its own PR first, after a short sub-plan agreed with the user) move qBittorrent into a new `torrent` namespace kept `enforce: privileged`: the HelmRelease folder stays `media/qbittorrent` but targets `namespace: torrent`; its config volume is migrated per the sub-plan; Radarr/Sonarr/Radarr 4K download clients and decluttarr point to `qbittorrent.torrent.svc.cluster.local:10095`; the `torrent` namespace gets its own `ingress-torrent.yaml` (from Traefik and from `media` on 10095) in Task 6's style, and `deny-apps-to-api-and-node` (Task 3) gains `torrent` in its `In` list.
+- (`media`) Create: `clusters/main/kubernetes/core/kyverno-policies/app/media-baseline.yaml`, listed in that folder's `kustomization.yaml`: a policy enforcing the PSA `baseline` checks on Pods in `media`, skipping qBittorrent's pod by its labels (read them from the live pod). Kyverno 1.19: prefer a CEL `ValidatingPolicy`; fall back to a `ClusterPolicy` `validate.podSecurity: {level: baseline}` rule with `exclude` if CEL can't express it. No `PolicyException` (`--enablePolicyException=false`). The `media` namespace label stays `privileged`.
 
 - [ ] **Step 1:** For each namespace, `kubectl label --dry-run=server --overwrite ns <ns> pod-security.kubernetes.io/enforce=<level>` and read the warnings. Target levels: `restricted` for `cloudflareddns`, `whosaid`, `authelia`, `lldap`, `panio`, `suivi-saeg`, `jupyter`; `baseline` for `blocky`, `traefik`; `media` per the decision. A namespace with violations: add the missing securityContext fields (`seccompProfile: RuntimeDefault`, `capabilities.drop: [ALL]`, `runAsNonRoot: true`, `allowPrivilegeEscalation: false`) in its chart values in the same PR, or settle one level lower.
 - [ ] **Step 2:** Set `enforce=<level>`, `warn` and `audit` one level stricter (`restricted` when enforcing `baseline`).
 - [ ] **Step 3:** kubeconform; commit; PR (one per few namespaces).
 - [ ] **Step 4 (after merge):** `kubectl -n <ns> rollout restart` each Deployment/StatefulSet; all pods Running; no new warnings in `kubectl get events -n <ns>`.
+- [ ] **Step 5 (`media`):** first ship the policy in Audit (`validationActions: [Audit]` / `validationFailureAction: Audit`); read its policy reports for `media` (only qBittorrent may fail, and it's skipped); then switch to Deny in a second PR. Check: a test pod in `media` with `privileged: true` (server dry-run, `kubectl run --dry-run=server`) is refused; restarting the qBittorrent deployment still works (Emby idle check first: `mise run emby:idle`).
 
 ### Task 8: Emby and Traefik hardening (C2, C3)
 
@@ -140,6 +141,7 @@ Depends on the user's answer to design question 2 for `media`.
 - Create: `clusters/main/kubernetes/network/traefik/app/` rate-limit middleware (a `Middleware` named `ratelimit` in `traefik`: `rateLimit: {average: 20, burst: 50}`), via the Traefik chart's `middlewares` values like `auth`/`local`
 - Modify: `clusters/main/kubernetes/auth/authelia/app/helm-release.yaml` ingress middlewares (add `traefik-ratelimit@kubernetescrd`), and the public apps' ingresses (`emby`, `panio`, `suivi-saeg` if they stay public)
 
+- [ ] **Step 0 (C2b, first: Step 1 relies on Emby seeing real client IPs):** Jellyseerr "Enable Proxy Support"; Emby's trusted/known proxy setting for 172.16.0.0/16 if it has one (in the app's settings or its config values; ask the user before changing a setting through the UI). Check: a LAN client shows as 192.168.1.x and a phone on mobile data as a public IP (not printed).
 - [ ] **Step 1 (outside git, user):** in Emby, admin accounts can't sign in remotely (per-user "Allow remote connections" off for admins), strong passwords; record what was set in the design.
 - [ ] **Step 2:** middleware + annotations; render; kubeconform; PR.
 - [ ] **Step 3 (after merge):** each URL loads; a burst of 100 requests in a second to `auth.` gets HTTP 429 after the burst (`for i in $(seq 100); do curl -s -o /dev/null -w '%{http_code}\n' --resolve ...; done | sort | uniq -c`, host masked).
