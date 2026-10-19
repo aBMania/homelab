@@ -42,7 +42,7 @@ spec:
               enabled: true
               certificateIssuer: domain-0-le-prod
           hosts:
-            - host: movies-4k.${DOMAIN_0}
+            - host: radarr-4k.${DOMAIN_0}
               paths:
                 - path: /
                   pathType: Prefix

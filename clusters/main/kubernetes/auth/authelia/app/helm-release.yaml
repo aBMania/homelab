@@ -115,14 +115,12 @@ spec:
             policy: one_factor
           # Support: password only, Radarr/Sonarr (admins match the rules below)
           - domain:
-              - "movies.${DOMAIN_0}"
-              - "tvshows.${DOMAIN_0}"
+              - "radarr.${DOMAIN_0}"
+              - "sonarr.${DOMAIN_0}"
             policy: one_factor
             subject: group:support
-          # Family: password only, media/subtitle apps
+          # Family: password only, subtitles
           - domain:
-              - "tvshows.${DOMAIN_0}"
-              - "movies.${DOMAIN_0}"
               - "subtitles.${DOMAIN_0}"
             policy: one_factor
             subject: group:user

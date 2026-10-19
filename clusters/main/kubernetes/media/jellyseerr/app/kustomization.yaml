@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - helm-release.yaml
   - jellyseerr-data-pvc.yaml
+  - redirect-ingress.yaml

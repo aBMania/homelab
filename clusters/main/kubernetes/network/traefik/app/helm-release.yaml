@@ -62,6 +62,12 @@ spec:
           regex: https://traefik\.${DOMAIN_0}/?$
           replacement: https://traefik.${DOMAIN_0}/dashboard/#/
           permanent: true
+        # Old Radarr/Sonarr hostnames: send people to Jellyseerr instead.
+        # Not permanent, so browsers don't cache it if the names get reused.
+        - name: requests-redirect
+          regex: (?i)^https?://(movies|tvshows)\.${DOMAIN_0}(:\d+)?(/.*)?$
+          replacement: https://requests.${DOMAIN_0}/
+          permanent: false
     ingress:
       main:
         enabled: true
