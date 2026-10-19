@@ -27,6 +27,8 @@ spec:
       retries: 3
   values:
     defaultPodOptions:
+      # Doesn't use the Kubernetes API
+      automountServiceAccountToken: false
       # 568 = TrueNAS `apps` user, so files on the NFS share match Emby and the *arrs
       securityContext:
         runAsUser: 568

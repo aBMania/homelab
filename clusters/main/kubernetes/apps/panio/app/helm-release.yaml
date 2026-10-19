@@ -17,6 +17,23 @@ spec:
       interval: 5m
   install:
     createNamespace: true
+  # The chart has no securityContext/serviceAccount values: patch the rendered Deployment.
+  # nginx starts as root (port 80, /var/cache/nginx): non-root needs an image change.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: panio
+            patch: |
+              - op: add
+                path: /spec/template/spec/automountServiceAccountToken
+                value: false
+              - op: add
+                path: /spec/template/spec/securityContext
+                value:
+                  seccompProfile:
+                    type: RuntimeDefault
   values:
     ingress:
       enabled: true
