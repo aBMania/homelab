@@ -75,6 +75,10 @@ spec:
       totp:
         issuer: ${DOMAIN_0}
       authentication_backend:
+        # Users' LLDAP mail addresses aren't real inboxes: the reset link would go nowhere (or to the admin).
+        # Passwords are reset by the admin in LLDAP instead.
+        password_reset:
+          disable: true
         ldap:
           address: ldap://lldap-ldap.lldap.svc.cluster.local:3890
           tls:
