@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - truenas.yaml
   - private-ranges.yaml
+  - api-and-node.yaml
