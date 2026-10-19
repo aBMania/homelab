@@ -103,6 +103,8 @@ Depends on the user's answers (design "Questions" 1 and 3). `panio`: public with
 
 ### Task 6: Ingress isolation per app namespace (A4)
 
+`media`: Emby :8096 must only be reachable from Traefik (and the node). Emby trusts `X-Forwarded-For` from any address (design C2b), so this rule is what stops a pod from posing as a LAN client.
+
 One PR per namespace, in this order: `media`, `panio`, `suivi-saeg`, `jupyter`, `blocky`, `whosaid`, `cloudflareddns`.
 
 **Files:**
@@ -141,7 +143,7 @@ App namespaces other than `media`: done in #1059 (enforced, pods restarted 2026-
 - Create: `clusters/main/kubernetes/network/traefik/app/` rate-limit middleware (a `Middleware` named `ratelimit` in `traefik`: `rateLimit: {average: 20, burst: 50}`), via the Traefik chart's `middlewares` values like `auth`/`local`
 - Modify: `clusters/main/kubernetes/auth/authelia/app/helm-release.yaml` ingress middlewares (add `traefik-ratelimit@kubernetescrd`), and the public apps' ingresses (`emby`, `panio`, `suivi-saeg` if they stay public)
 
-- [ ] **Step 0 (C2b, first: Step 1 relies on Emby seeing real client IPs):** Jellyseerr "Enable Proxy Support"; Emby's trusted/known proxy setting for 172.16.0.0/16 if it has one (in the app's settings or its config values; ask the user before changing a setting through the UI). Check: a LAN client shows as 192.168.1.x and a phone on mobile data as a public IP (not printed).
+- [ ] **Step 0 (C2b, first: Step 1 relies on Emby seeing real client IPs):** already configured (design C2b, 2026-10-19); only run the check below. Originally: Jellyseerr "Enable Proxy Support"; Emby's trusted/known proxy setting for 172.16.0.0/16 if it has one (in the app's settings or its config values; ask the user before changing a setting through the UI). Check: a LAN client shows as 192.168.1.x and a phone on mobile data as a public IP (not printed).
 - [ ] **Step 1 (outside git, user):** in Emby, admin accounts can't sign in remotely (per-user "Allow remote connections" off for admins), strong passwords; record what was set in the design.
 - [ ] **Step 2:** middleware + annotations; render; kubeconform; PR.
 - [ ] **Step 3 (after merge):** each URL loads; a burst of 100 requests in a second to `auth.` gets HTTP 429 after the burst (`for i in $(seq 100); do curl -s -o /dev/null -w '%{http_code}\n' --resolve ...; done | sort | uniq -c`, host masked).
