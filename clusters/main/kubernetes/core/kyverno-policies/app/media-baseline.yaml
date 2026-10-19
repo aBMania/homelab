@@ -1,0 +1,101 @@
+---
+# Pod Security "baseline" for the media namespace, with two narrow exceptions.
+# The namespace label stays privileged: built-in Pod Security can't exempt one pod.
+# - qBittorrent's gluetun sidecar (VPN) adds NET_ADMIN and NET_RAW.
+# - Emby's broadcastproxy uses the host network (LAN discovery for the projector).
+# Every other baseline control applies to them too. Kyverno has no pod-security
+# helper in CEL, so the controls are written out (kubernetes.io/docs/concepts/security/pod-security-standards).
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: media-pod-security-baseline
+  annotations:
+    policies.kyverno.io/title: Pod Security baseline for media
+    policies.kyverno.io/subject: Pod
+spec:
+  validationActions: [Audit]
+  evaluation:
+    background:
+      enabled: true
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: media
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: labels
+      expression: object.metadata.?labels.orValue({})
+    - name: isBroadcastProxy
+      expression: >-
+        variables.labels[?'app.kubernetes.io/name'].orValue('') == 'emby' &&
+        variables.labels[?'pod.name'].orValue('') == 'broadcastproxy'
+    - name: isQbittorrent
+      expression: variables.labels[?'app.kubernetes.io/name'].orValue('') == 'qbittorrent'
+    - name: containers
+      expression: >-
+        object.spec.containers +
+        object.spec.?initContainers.orValue([]) +
+        object.spec.?ephemeralContainers.orValue([])
+    - name: podSc
+      expression: object.spec.?securityContext.orValue({})
+    - name: baselineCaps
+      expression: >-
+        ['AUDIT_WRITE', 'CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'FSETID', 'KILL', 'MKNOD',
+        'NET_BIND_SERVICE', 'SETFCAP', 'SETGID', 'SETPCAP', 'SETUID', 'SYS_CHROOT']
+    - name: safeSysctls
+      expression: >-
+        ['kernel.shm_rmid_forced', 'net.ipv4.ip_local_port_range', 'net.ipv4.ip_unprivileged_port_start',
+        'net.ipv4.tcp_syncookies', 'net.ipv4.ping_group_range', 'net.ipv4.ip_local_reserved_ports',
+        'net.ipv4.tcp_keepalive_time', 'net.ipv4.tcp_fin_timeout', 'net.ipv4.tcp_keepalive_intvl',
+        'net.ipv4.tcp_keepalive_probes']
+    - name: seLinuxTypes
+      expression: "['', 'container_t', 'container_init_t', 'container_kvm_t', 'container_engine_t']"
+  validations:
+    - message: host network, PID and IPC namespaces are not allowed (only Emby's broadcastproxy may use the host network)
+      expression: >-
+        (!object.spec.?hostNetwork.orValue(false) || variables.isBroadcastProxy) &&
+        !object.spec.?hostPID.orValue(false) &&
+        !object.spec.?hostIPC.orValue(false)
+    - message: host ports are not allowed
+      expression: >-
+        variables.isBroadcastProxy ||
+        variables.containers.all(c, c.?ports.orValue([]).all(p, p.?hostPort.orValue(0) == 0))
+    - message: privileged containers and Windows HostProcess are not allowed
+      expression: >-
+        variables.containers.all(c,
+          !c.?securityContext.?privileged.orValue(false) &&
+          !c.?securityContext.?windowsOptions.?hostProcess.orValue(false)) &&
+        !variables.podSc.?windowsOptions.?hostProcess.orValue(false)
+    - message: capabilities beyond the baseline set are not allowed (only qBittorrent's gluetun may add NET_ADMIN and NET_RAW)
+      expression: >-
+        variables.containers.all(c, c.?securityContext.?capabilities.?add.orValue([]).all(cap,
+          cap in variables.baselineCaps ||
+          (variables.isQbittorrent && c.name == 'qbittorrent-gluetun' && cap in ['NET_ADMIN', 'NET_RAW'])))
+    - message: hostPath volumes are not allowed
+      expression: object.spec.?volumes.orValue([]).all(v, !has(v.hostPath))
+    - message: AppArmor must not be unconfined
+      expression: >-
+        variables.podSc.?appArmorProfile.?type.orValue('') != 'Unconfined' &&
+        variables.containers.all(c, c.?securityContext.?appArmorProfile.?type.orValue('') != 'Unconfined') &&
+        object.metadata.?annotations.orValue({}).all(k,
+          !k.startsWith('container.apparmor.security.beta.kubernetes.io/') ||
+          object.metadata.annotations[k] != 'unconfined')
+    - message: SELinux options are limited to the container types, without user or role
+      expression: >-
+        ([variables.podSc] + variables.containers.map(c, c.?securityContext.orValue({}))).all(sc,
+          sc.?seLinuxOptions.?type.orValue('') in variables.seLinuxTypes &&
+          sc.?seLinuxOptions.?user.orValue('') == '' &&
+          sc.?seLinuxOptions.?role.orValue('') == '')
+    - message: procMount must be Default
+      expression: >-
+        variables.containers.all(c, c.?securityContext.?procMount.orValue('Default') == 'Default')
+    - message: seccomp must not be Unconfined
+      expression: >-
+        variables.podSc.?seccompProfile.?type.orValue('') != 'Unconfined' &&
+        variables.containers.all(c, c.?securityContext.?seccompProfile.?type.orValue('') != 'Unconfined')
+    - message: only the safe sysctls are allowed
+      expression: variables.podSc.?sysctls.orValue([]).all(s, s.name in variables.safeSysctls)
