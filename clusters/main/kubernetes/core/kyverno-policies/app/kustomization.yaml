@@ -3,5 +3,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - schematic-to-pod.yaml
-  - media-baseline.yaml
+  # Paused: with it, Kyverno 1.19.1's reports controller spins at ~2.5 CPU cores (even with the
+  # background scan off). Audit-only, so nothing loses protection. Re-enable once understood.
+  # - media-baseline.yaml
   # - ensure-digest.yaml
