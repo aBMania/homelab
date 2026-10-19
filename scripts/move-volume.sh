@@ -7,6 +7,8 @@
 #       scale to 0 → pass 2 --delete → file counts equal? → resume HR → rollout → uses <dest-pvc>.
 # Once the PR is merged the HelmRelease already points at <dest-pvc>: any failure from then on
 # leaves it SUSPENDED (resuming would start the app on an incomplete copy). Rerun to continue.
+# Namespaces enforcing Pod Security `restricted` (lldap, whosaid, cloudflareddns) reject the rsync
+# pod (root init container, nfs volume): relabel the namespace `baseline` for the move, then back.
 # Test overrides: EMBY_IDLE_CMD, MOVE_POLL (seconds between polls), MOVE_STATE_DIR, MOVE_STOP_TIMEOUT,
 # MOVE_SAVE_MANIFESTS (append the rsync pod manifests to this file).
 set -euo pipefail
