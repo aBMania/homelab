@@ -1,0 +1,25 @@
+# Keep pods off the home network: a compromised app can't scan or attack the router, laptops,
+# phones or the projector. Covers all private (RFC 1918) ranges, not only the LAN's 192.168.1.0/24.
+# Pod and service addresses are cluster identities, not CIDRs: in-cluster traffic is not matched.
+# Measured before adding it: the only pod traffic to private ranges was Traefik → TrueNAS UI.
+#
+# Every pod except Traefik (see traefik-egress in truenas.yaml). Only adds this deny.
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: deny-pods-to-private-ranges
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: NotIn
+        values:
+          - traefik
+  enableDefaultDeny:
+    egress: false
+    ingress: false
+  egressDeny:
+    - toCIDR:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
