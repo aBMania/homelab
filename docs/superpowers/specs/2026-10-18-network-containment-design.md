@@ -74,7 +74,7 @@ Network policies are the main tool, but this design covers every layer that limi
 | Entry | Login |
 |---|---|
 | Router TCP 443/80 → Traefik (.110) | per app |
-| Router TCP 2222 → TrueNAS SSH :22 | key-only (rbossut, 6 keys, FULL_ADMIN) |
+| Router TCP 2222 → TrueNAS SSH :22 | key-only (one SSH user, 6 keys, FULL_ADMIN) |
 | `emby.` | Emby's own login (clients can't do Authelia) |
 | `panio.`, `suivi-saeg.` | none / own login (no Authelia middleware) |
 | `auth.` | Authelia itself |
@@ -125,18 +125,23 @@ All new cluster-wide and app-namespace policies live in `core/network-policies/`
 - **B3 Pod Security levels.** Label each app namespace with the strictest level its pods pass, `enforce` plus `warn`/`audit` at the next level up:
   - `restricted` candidates: `cloudflareddns`, `whosaid`, `authelia`, `lldap`, `panio`, `suivi-saeg`, `jupyter` (after B2 / small securityContext additions: `seccompProfile: RuntimeDefault`, `capabilities.drop: [ALL]`, `runAsNonRoot`);
   - `baseline`: `blocky` (root + allowed caps in k8sgateway), `traefik`;
-  - `media`: blocked at `privileged` by gluetun. **Decision for the user**, options:
-    1. move qBittorrent (+gluetun) into its own `torrent` namespace kept `privileged`, and set `media` to `restricted`/`baseline` (cleanest; moves a stateful app: plan its config/volumes and the arr download-client URLs);
-    2. keep one namespace, `enforce: baseline` is impossible; use a Kyverno pod-security policy with a `PolicyException` for gluetun (Kyverno is installed; adds policy machinery);
-    3. leave `media` privileged and document it (no change).
+  - `media`: blocked at `privileged` by gluetun. **User's choice (2026-10-19): a Kyverno policy with an exception for qBittorrent** (moving it to its own namespace means more config changes). The namespace label stays `privileged` (built-in PSA can't exempt one pod); a Kyverno policy enforces the `baseline` checks on every `media` pod except qBittorrent's, matched by its labels. Kyverno is 1.19 with `--enablePolicyException=false` and v1 `ClusterPolicy` deprecated: write the exclusion into the policy itself (a CEL `ValidatingPolicy` match condition, or a `ClusterPolicy` `podSecurity` rule with `exclude` if CEL can't express the baseline checks), not a `PolicyException`. Audit mode first is fine here: unlike Cilium's, it only affects this policy. Other options considered: a separate `torrent` namespace; leaving `media` privileged.
   Check with `kubectl label --dry-run=server` (reports violations) before each label PR.
 
 ### Track C: internet exposure
 
-- **C1 panio and suivi-saeg**: today public without Authelia. **Decision for the user** per app: put behind Authelia (who are the users?), restrict to LAN (`local` middleware), or keep public with a written reason.
+- **C1 panio and suivi-saeg**: today public without Authelia.
+  - `panio`: **public without auth, the user's choice (2026-10-19).** No change; the ingress isolation (A4) and the B2/B3 hardening still apply.
+  - `suivi-saeg`: **decision for the user**: behind Authelia (who are the users?), LAN-only (`local` middleware), or public with a written reason.
 - **C2 Emby**: stays public (TV/phone clients can't do Authelia). Mitigations without breaking clients: keep Emby updated (Renovate), no admin account reachable from outside if Emby allows (`Allow remote connections` per user / admin login only from LAN), strong passwords.
+- **C2b real client IPs in Emby and Jellyseerr (user's choice, 2026-10-19).** Behind Traefik both apps see every client as Traefik's pod IP (172.16.x). That's a private address, so Emby takes internet clients for LAN ones: per-user "allow remote connections", LAN-only admin login and its logs all rely on the client IP. Traefik already sets `X-Forwarded-For` from the real source (`externalTrafficPolicy: Local`, client-supplied headers not trusted). Make each app trust that header from Traefik only:
+  - Jellyseerr: "Enable Proxy Support" (`trustProxy` in its settings).
+  - Emby: its network settings' trusted/known proxy option if this version has one, scoped to the pod CIDR 172.16.0.0/16 (or Traefik's address); if it has none, record that and keep C2's mitigations in mind as weaker.
+  - Check after: the app's log or session view shows a LAN client as 192.168.1.x and a phone on mobile data as a public IP (not printed); a request with a forged `X-Forwarded-For` from outside isn't trusted.
+  - **Found already in place (2026-10-19):** Jellyseerr `trustProxy: true`; Emby `IsBehindProxy: true`, `ProxyHeaderMode: AllAddresses`, LAN subnets `192.168.1.0/24` (pod IPs aren't "local"). Through Traefik this is safe: Traefik doesn't trust client-sent forwarded headers. But `AllAddresses` means Emby believes `X-Forwarded-For` from anyone who reaches it directly: a compromised pod could claim a LAN address. A4's ingress policy for `media` (Emby :8096 only from Traefik and the node) closes that; keep it a hard requirement there.
+  - Side finding: Emby advertises `192.168.1.110` (Traefik) as its local address, so LAN apps first try `192.168.1.110:8096`, which Traefik doesn't serve (Cilium "no service backend" drops from a LAN device on 2026-10-19), then fall back to the public URL.
 - **C3 Traefik hardening**: a rate-limit middleware on the Authelia login and on public apps; optional geo/IP reputation filtering (e.g. a CrowdSec bouncer) as a later option.
-- **C4 TrueNAS SSH (2222 → :22)**: well configured; residual risk is rbossut's 6 FULL_ADMIN keys and direct exposure. **Decision for the user** (depends on rbossut): keep as is (documented risk), limit the source IPs (the Neufbox port-forward UI may not support source filtering), or move access to a VPN (WireGuard/Tailscale) and remove the forward.
+- **C4 TrueNAS SSH (2222 → :22)**: well configured; residual risk is the SSH user's 6 FULL_ADMIN keys and direct exposure. the SSH user connects from anywhere so far; **the user is asking them** (2026-10-19). Options: keep as is (documented risk), limit the source IPs (the Neufbox port-forward UI may not support source filtering), or move access to a VPN (WireGuard/Tailscale) and remove the forward.
 
 ### Track D: home network
 
@@ -178,9 +183,10 @@ A throwaway probe pod (busybox, temporary namespace, deleted at the end, prints 
 
 ## Questions only the user can answer
 
-1. **panio, suivi-saeg**: who uses them? Behind Authelia, LAN-only, or public on purpose?
-2. **media PSA**: move qBittorrent to its own namespace, Kyverno exception, or leave `media` privileged?
-3. **TrueNAS SSH**: does rbossut connect from a few fixed places, or from anywhere? (keep / source-limit / VPN)
+1. ~~panio~~: public, no auth (answered 2026-10-19). **suivi-saeg**: who uses it? Behind Authelia, LAN-only, or public on purpose?
+2. ~~media PSA~~: Kyverno policy with an exception for qBittorrent (answered 2026-10-19).
+3. **TrueNAS SSH**: from anywhere so far; the user is asking the SSH user (keep / source-limit / VPN).
+5. ~~Emby/Jellyseerr trusted proxy~~: yes, added as C2b (answered 2026-10-19).
 4. ~~Audit window for A2, A3~~: moot, audit mode dropped (it lifts every policy on the pod).
 
 ## Calls made by Claude (to check)
