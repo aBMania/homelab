@@ -29,28 +29,24 @@
 - **LAN clients resolving through Blocky** (192.168.1.111:53) after A2 and A4: `dig @192.168.1.111 example.com` from the laptop must still answer — test in Task 2 and Task 6 (blocky).
 - **The projector finding and playing Emby** after A4 on `media`: discovery (UDP 7359 via the host-network relay) and playback must keep working — user check in Task 6 (media).
 - **CNPG Postgres pods after A3**: they talk to the API (instance manager); clusters must stay `Cluster in healthy state` — test in Task 3.
-- **Pods restarted during an audit window** silently enforce: `net:audit status <ns>` must show it, so the operator can re-run `on` — test in Task 1.
+- **A source missing from `net:inbound`** because the app wasn't used during the evidence window (e.g. the projector): the user exercises each app before A4 enforces; `net:drops <ns>` right after merge — Task 6.
 - **`${NFS_HOST}` left unsubstituted** in a new policy would match nothing: check the live object's CIDR after each deploy — step in Task 2.
 
 ---
 
-### Task 1: Rollout tooling: audit verdicts in the export, `net:audit`, `net:drops --audit` (E1)
+### Task 1: Rollout tooling: the `inbound` flow log and `net:inbound` (E1)
 
 **Files:**
-- Modify: `clusters/main/kubernetes/kube-system/cilium/app/helm-release.yaml` (`hubble.export.static.allowList`)
-- Create: `scripts/net-audit.sh`
-- Modify: `scripts/net-drops.sh` (add `--audit`)
-- Modify: `mise.toml` (task `net:audit`)
+- Modify: `clusters/main/kubernetes/kube-system/cilium/app/helm-release.yaml` (`hubble.export.dynamic`)
+- Create: `scripts/net-inbound.sh`
+- Modify: `mise.toml` (task `net:inbound`)
 
 **Interfaces:**
-- Produces: `mise run net:audit on|off|status <namespace>`; `mise run net:drops --audit [namespace]` (filters `--verdict AUDIT` instead of `DROPPED`, in both file and `--follow` modes).
+- Produces: `mise run net:inbound [namespace]`: one line per source (`<ns>/<workload>`, `LAN:<ip>` or `internet`) → `<ns>/<workload>` and port, with count and last seen.
 
-- [ ] **Step 1:** Change the export allow-list to `- '{"verdict":["DROPPED","AUDIT"]}'` (one JSON string). Render with `helm template` (as in #1044) and check `hubble-export-allowlist: "{\"verdict\":[\"DROPPED\",\"AUDIT\"]}"` in the output.
-- [ ] **Step 2:** `scripts/net-audit.sh <on|off|status> <namespace>`: inside the agent (`kubectl -n kube-system exec ds/cilium -c cilium-agent --`), list endpoints with `cilium-dbg endpoint list -o json`, keep those whose labels contain `k8s:io.kubernetes.pod.namespace=<namespace>`, then `cilium-dbg endpoint config <id> PolicyAuditMode=Enabled|Disabled`. `status` prints one line per endpoint: pod name and `PolicyAuditMode` (from `cilium-dbg endpoint get <id>`), and a final count `enabled N / total M`. Exit non-zero on an unknown verb or a namespace with no endpoints.
-- [ ] **Step 3:** `net-drops.sh`: `--audit` switches the verdict filter to `AUDIT`; keep the ICMPv6 exclusion in `--follow`.
-- [ ] **Step 4:** `mise.toml`: `[tasks."net:audit"]`, `run = "bash scripts/net-audit.sh"`, description "Per-pod Cilium policy audit mode for a namespace (on|off|status): policies log AUDIT instead of dropping. Lost when a pod restarts".
-- [ ] **Step 5:** Commit, PR (warn: agent restart). After merge: `rollout status ds/cilium`; `kubectl -n kube-system get cm cilium-config -o jsonpath='{.data.hubble-export-allowlist}'` shows both verdicts.
-- [ ] **Step 6 (live, with the user's OK):** `mise run net:audit on whosaid` then `status whosaid` → `enabled N / total N`; delete one whosaid pod, wait for it, `status` → `enabled N-1 / total N` (the Review Focus case); `off whosaid` → `enabled 0`.
+- [ ] **Step 1:** Dynamic flow log `inbound` → `/var/run/cilium/hubble/inbound.log`: include TCP SYNs (`reply: [false]`, `tcp_flags: [{SYN: true}]`) and UDP (`protocol: [udp]`) to `destination_pod` in the app namespaces; exclude `source_label: ["reserved:host"]` and Blocky port 53; field mask to the fields the summary needs. Render with `helm template`: `hubble-flowlogs-config-path` set, ConfigMap `cilium-flowlog-config` as intended, static export unchanged.
+- [ ] **Step 2:** `scripts/net-inbound.sh [namespace]`: cat `inbound*.log` from the agent (oldest first), aggregate with jq/awk; public source IPs print as `internet`. Test with a fake `kubectl` serving fixture flows: grouping by workload, LAN vs internet, namespace filter, empty file message.
+- [ ] **Step 3:** Commit, PR (warn: agent restart). After merge: `rollout status ds/cilium`; agent log has no `Failed to parse dynamic exporter config`; after an hour `mise run net:inbound` shows Traefik → app lines; check the file's growth rate (10 MB × 6 files).
 
 ### Task 2: Pods → private ranges (A2)
 
@@ -65,7 +61,7 @@
 - [ ] **Step 1:** Before writing: sample 5 minutes of flows to private ranges (`hubble observe -P --follow --to-ip 192.168.0.0/16` etc. aggregated per namespace as in the design's sample). Expected: only `traefik → ${NFS_HOST}:444`. Anything else: stop and report.
 - [ ] **Step 2:** `private-ranges.yaml`: CCNP `deny-pods-to-private-ranges`, `endpointSelector` = namespace `NotIn [traefik]`, deny-only, `egressDeny: toCIDR: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]`. Header comment: why, and "pod/service CIDRs are cluster identities, not matched".
 - [ ] **Step 3:** `traefik-egress`: the `toCIDRSet` rule becomes `cidr: 0.0.0.0/0`, `except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]`; keep `toEntities: [cluster]` and `${NFS_HOST}:444`.
-- [ ] **Step 4:** kubeconform + server dry-run; commit; PR. The user decides: audit window first (Task 1 tooling on the namespaces) or direct.
+- [ ] **Step 4:** kubeconform + server dry-run; commit; PR. Ships directly when the sample is clean.
 - [ ] **Step 5 (after merge):** live objects show `192.168.1.73/32` substituted; probe pod: `192.168.1.1:80` blocked, `1.1.1.1:443` connected, `kubernetes.default.svc:443` connected; `dig @192.168.1.111` from the laptop answers; the user loads the TrueNAS UI; `mise run net:drops` shows only the probe's drops.
 
 ### Task 3: App pods → API server and node (A3)
@@ -121,10 +117,9 @@ One PR per namespace, in this order: `media`, `panio`, `suivi-saeg`, `jupyter`, 
   - `fromEndpoints: [{}]` (same namespace)
   - `blocky` only: `fromEntities: [world, host]` with `toPorts: 53/UDP, 53/TCP`
   - `whosaid`, `cloudflareddns`: only the same-namespace rule (no Traefik)
-- [ ] **Step 2 (live, user's OK):** `mise run net:audit on <namespace>`.
+- [ ] **Step 2:** `mise run net:inbound <namespace>` covering a few days of normal use (the user exercises each app). Each source: a rule in Step 1's policy with a comment, or a written reason to stay blocked.
 - [ ] **Step 3:** kubeconform + server dry-run; commit; PR; merge.
-- [ ] **Step 4:** a few days of `mise run net:drops --audit <namespace>`: expected empty. Each AUDIT line: add a rule in git with a comment, or explain why it must stay blocked.
-- [ ] **Step 5 (live, user's OK):** `mise run net:audit off <namespace>`; acceptance: probe pod in a temporary namespace → a pod of `<namespace>` on its service port: blocked; every app URL of the namespace loads; `media`: the user checks the projector discovers and plays Emby; `blocky`: `dig @192.168.1.111` from the laptop answers.
+- [ ] **Step 4:** right after merge: `mise run net:drops <namespace>` (expected: nothing legitimate); acceptance: probe pod in a temporary namespace → a pod of `<namespace>` on its service port: blocked; every app URL of the namespace loads; `media`: the user checks the projector discovers and plays Emby; `blocky`: `dig @192.168.1.111` from the laptop answers. Anything legitimate dropped: fix in git or revert.
 
 ### Task 7: Pod Security levels (B3)
 

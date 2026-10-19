@@ -35,7 +35,7 @@ Network policies are the main tool, but this design covers every layer that limi
 ## Anti-goals
 
 - A setup where every Renovate bump or new app breaks in a way that's hard to debug. Rules should be few, generic and readable ("deny LAN", "allow from Traefik"), not a per-app port matrix.
-- Losing existing protection during a rollout (Authelia/LLDAP policies, TrueNAS deny). This rules out Cilium's global audit mode.
+- Losing existing protection during a rollout (Authelia/LLDAP policies, TrueNAS deny). This rules out Cilium's audit mode, global or per pod: on an audited pod *every* policy only logs, including the TrueNAS deny (found in review, 2026-10-19).
 - Locking the user out of their own admin paths (laptop → TrueNAS UI, kubectl, talosctl).
 
 ## Current state (2026-10-18)
@@ -144,19 +144,19 @@ All new cluster-wide and app-namespace policies live in `core/network-policies/`
 
 ### Track E: finding out
 
-- **E1 rollout tooling**: add AUDIT to the Hubble export allow-list (Cilium values change, with the #1047 checks), `net:drops --audit`, and `mise run net:audit on|off <namespace>` (per-endpoint audit mode through `cilium-dbg endpoint config <id> PolicyAuditMode=Enabled|Disabled`).
+- **E1 rollout tooling (evidence first)**: a second Hubble flow log (`hubble.export.dynamic`, file `inbound.log`, reloaded without an agent restart) of new connections into app namespaces, excluding the node and LAN DNS to Blocky; `mise run net:inbound [namespace]` summarises it per source → workload:port with counts. Drops stay in the static export (`net:drops`).
 - **E2 (separate project) phone push notifications** for drops and other alerts; then alert on new drops after each rollout.
 - **E3 (if needed) longer drop history**: compress / field-mask the export file.
 
 ### Rollout procedure (every policy step)
 
-1. Before merging: list the endpoints the policy will select; `mise run net:audit on <ns>` for allow-list/default-deny steps (A4, A5).
-2. Merge; watch `rollout status` if Cilium values changed.
-3. Watch `mise run net:drops --audit` (and `net:drops` for real drops) for a few days.
-4. Fix gaps in git; `mise run net:audit off <ns>`; re-run the step's acceptance test.
-5. Audit mode is lost when a pod restarts: `net:audit` is idempotent; a pod that restarted early just enforces early (rollback = revert PR).
+Evidence first, then enforce: no step weakens the policies already live.
 
-Deny-only steps (A2, A3) may skip the audit window when the Hubble sample shows nothing would be blocked; the user decides per step.
+1. Before writing an allow-list policy (A4, A5): a few days of `mise run net:inbound <ns>`, covering normal use of each app (a film on the projector, a request, a download). Every source in it gets an allow rule or a written reason to stay blocked.
+2. Merge; watch `rollout status` if Cilium values changed.
+3. Right after: `mise run net:drops <ns>` and the step's acceptance test. A missed flow shows as a drop: add the rule in git, or revert the PR (rollback).
+
+Deny-only steps (A2, A3) use a short Hubble sample instead of days of `net:inbound`, and ship directly when it is clean.
 
 ### Acceptance tests
 
@@ -169,7 +169,7 @@ A throwaway probe pod (busybox, temporary namespace, deleted at the end, prints 
 
 ## Order
 
-1. E1 (tooling: audit export + `net:audit`), so later steps can be audited.
+1. E1 (tooling: the `inbound` flow log + `net:inbound`), so evidence for A4 builds up early.
 2. A2 (private ranges), A3 (API/node), B1 (tokens): cheap, measured, high value.
 3. C1 decision + change; C4 decision.
 4. A4 (ingress per namespace), one namespace at a time, internet-facing first: `media`, `panio`, `suivi-saeg`, `jupyter`, then `blocky`, `whosaid`, `cloudflareddns`.
@@ -181,7 +181,7 @@ A throwaway probe pod (busybox, temporary namespace, deleted at the end, prints 
 1. **panio, suivi-saeg**: who uses them? Behind Authelia, LAN-only, or public on purpose?
 2. **media PSA**: move qBittorrent to its own namespace, Kyverno exception, or leave `media` privileged?
 3. **TrueNAS SSH**: does rbossut connect from a few fixed places, or from anywhere? (keep / source-limit / VPN)
-4. **Audit window** for deny-only steps A2, A3: skip when the sample is clean, or always audit a few days?
+4. ~~Audit window for A2, A3~~: moot, audit mode dropped (it lifts every policy on the pod).
 
 ## Calls made by Claude (to check)
 

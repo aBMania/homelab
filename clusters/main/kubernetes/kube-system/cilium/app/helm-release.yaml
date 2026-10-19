@@ -55,6 +55,53 @@ spec:
           # IPv6 router solicitations on the LAN, dropped all the time and harmless
           denyList:
             - '{"protocol":["ICMPv6"]}'
+        # Evidence for per-namespace ingress policies: new connections into app namespaces, read
+        # with `mise run net:inbound`. Reloaded without an agent restart; a bad config is logged
+        # ("Failed to parse dynamic exporter config"), not fatal. Filters are YAML FlowFilters
+        # (snake_case fields; no enum fields such as verdict, they only parse as numbers).
+        dynamic:
+          enabled: true
+          config:
+            content:
+              - name: inbound
+                filePath: /var/run/cilium/hubble/inbound.log
+                fieldMask:
+                  - time
+                  - source.namespace
+                  - source.pod_name
+                  - source.identity
+                  - IP.source
+                  - destination.namespace
+                  - destination.pod_name
+                  - l4
+                  - is_reply
+                includeFilters:
+                  # TCP: only the opening SYN
+                  - destination_pod: &appNamespaces
+                      - media/
+                      - panio/
+                      - suivi-saeg/
+                      - whosaid/
+                      - jupyter/
+                      - blocky/
+                      - cloudflareddns/
+                      - authelia/
+                      - lldap/
+                      - veggie-planner/
+                    reply: [false]
+                    tcp_flags:
+                      - SYN: true
+                  - destination_pod: *appNamespaces
+                    reply: [false]
+                    protocol: [udp]
+                excludeFilters:
+                  # Kubelet probes and the node: always allowed by Cilium
+                  - source_label: ["reserved:host"]
+                  # LAN DNS queries to Blocky: known, and most of the volume
+                  - destination_pod: ["blocky/"]
+                    destination_port: ["53"]
+                fileMaxSizeMb: 10
+                fileMaxBackups: 5
       relay:
         enabled: true
       ui:
