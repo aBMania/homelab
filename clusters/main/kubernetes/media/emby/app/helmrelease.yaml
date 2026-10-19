@@ -94,3 +94,22 @@ spec:
                     nvidia.com/gpu: 1
       autodiscovery:
         enabled: true
+      # Emby on its own LAN IP, so apps at home connect directly (plain HTTP on the LAN) instead of
+      # through Traefik. Emby's "local network address" (Settings > Network) must name this IP: it is
+      # what Emby tells LAN apps to use. Local: Emby sees the real LAN client IP.
+      service:
+        lan:
+          enabled: true
+          type: LoadBalancer
+          loadBalancerIP: 192.168.1.112
+          externalTrafficPolicy: Local
+          # turns loadBalancerIP into MetalLB's annotation (the pool doesn't auto-assign)
+          integrations:
+            metallb:
+              enabled: true
+          targetSelector: main
+          ports:
+            lan:
+              enabled: true
+              port: 8096
+              targetPort: 8096
