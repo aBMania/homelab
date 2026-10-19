@@ -7,5 +7,4 @@ resources:
   # veggie-planner disabled 2026-10-18 (API image pull failing since ~10-10; stateless).
   # Re-enable by restoring this line: the app folder is kept.
   # - veggie-planner/ks.yaml
-  - suivi-saeg/ks.yaml
   - whosaid/ks.yaml

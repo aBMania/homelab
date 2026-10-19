@@ -31,7 +31,7 @@ clusters/main/
     network/                 # traefik, cloudflare DDNS
     auth/                    # lldap + authelia
     media/                   # *arr stack, qbittorrent, emby
-    apps/                    # personal / self-built apps (panio, veggie-planner, suivi-saeg, whosaid, …)
+    apps/                    # personal / self-built apps (panio, veggie-planner, whosaid, …)
 repositories/
   flux-entry.yaml            # Flux Kustomization -> ./repositories
   helm/                      # HelmRepository sources (truecharts, bjw-s, fait-maison, …)
@@ -58,7 +58,7 @@ Every app follows the same pattern:
 To add one:
 
 1. Create the folder under the right group (`apps/` for personal apps, `media/` for the media stack, etc.).
-2. `ks.yaml`: `kustomize.toolkit.fluxcd.io/v1` Kustomization named after the app, `namespace: flux-system`, `path: clusters/main/kubernetes/<group>/<app>/app`, `prune: true`, `sourceRef: {kind: GitRepository, name: cluster}`. Copy a sibling such as `apps/suivi-saeg/ks.yaml`.
+2. `ks.yaml`: `kustomize.toolkit.fluxcd.io/v1` Kustomization named after the app, `namespace: flux-system`, `path: clusters/main/kubernetes/<group>/<app>/app`, `prune: true`, `sourceRef: {kind: GitRepository, name: cluster}`. Copy a sibling such as `apps/panio/ks.yaml`.
 3. Register it in the group's `kustomization.yaml` (`- <app>/ks.yaml`). If you forget this step, Flux never deploys the app.
 4. If the chart comes from a new Helm repo, add a `HelmRepository` in `repositories/helm/` and list it in `repositories/helm/kustomization.yaml`.
 

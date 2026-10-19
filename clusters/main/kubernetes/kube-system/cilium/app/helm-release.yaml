@@ -80,7 +80,6 @@ spec:
                   - destination_pod: &appNamespaces
                       - media/
                       - panio/
-                      - suivi-saeg/
                       - whosaid/
                       - jupyter/
                       - blocky/
@@ -104,7 +103,6 @@ spec:
                   # filled the log in hours)
                   - {source_pod: ["media/"], destination_pod: ["media/"]}
                   - {source_pod: ["panio/"], destination_pod: ["panio/"]}
-                  - {source_pod: ["suivi-saeg/"], destination_pod: ["suivi-saeg/"]}
                   - {source_pod: ["whosaid/"], destination_pod: ["whosaid/"]}
                   - {source_pod: ["jupyter/"], destination_pod: ["jupyter/"]}
                   - {source_pod: ["blocky/"], destination_pod: ["blocky/"]}
