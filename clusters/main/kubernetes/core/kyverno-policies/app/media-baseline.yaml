@@ -97,5 +97,13 @@ spec:
       expression: >-
         variables.podSc.?seccompProfile.?type.orValue('') != 'Unconfined' &&
         variables.containers.all(c, c.?securityContext.?seccompProfile.?type.orValue('') != 'Unconfined')
+    - message: probes and lifecycle hooks must not set a host (the kubelet would connect to it)
+      expression: >-
+        variables.containers.all(c,
+          c.?livenessProbe.?httpGet.?host.orValue('') == '' && c.?livenessProbe.?tcpSocket.?host.orValue('') == '' &&
+          c.?readinessProbe.?httpGet.?host.orValue('') == '' && c.?readinessProbe.?tcpSocket.?host.orValue('') == '' &&
+          c.?startupProbe.?httpGet.?host.orValue('') == '' && c.?startupProbe.?tcpSocket.?host.orValue('') == '' &&
+          c.?lifecycle.?postStart.?httpGet.?host.orValue('') == '' && c.?lifecycle.?postStart.?tcpSocket.?host.orValue('') == '' &&
+          c.?lifecycle.?preStop.?httpGet.?host.orValue('') == '' && c.?lifecycle.?preStop.?tcpSocket.?host.orValue('') == '')
     - message: only the safe sysctls are allowed
       expression: variables.podSc.?sysctls.orValue([]).all(s, s.name in variables.safeSysctls)
