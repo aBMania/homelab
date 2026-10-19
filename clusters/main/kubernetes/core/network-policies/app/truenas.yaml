@@ -22,8 +22,9 @@ spec:
     - toCIDR:
         - ${NFS_HOST}/32
 ---
-# Traefik: anything except TrueNAS, and TrueNAS only for its web UI (HTTPS on 444, the
-# truenas external-service). Allow rules add up; whatever isn't listed is dropped.
+# Traefik: the cluster and the internet, no private ranges (see private-ranges.yaml), and on
+# the LAN only TrueNAS's web UI (HTTPS on 444, the truenas external-service). Allow rules add
+# up; whatever isn't listed is dropped.
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
@@ -39,7 +40,9 @@ spec:
     - toCIDRSet:
         - cidr: 0.0.0.0/0
           except:
-            - ${NFS_HOST}/32
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
     - toCIDR:
         - ${NFS_HOST}/32
       toPorts:
