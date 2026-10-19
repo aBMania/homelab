@@ -1,8 +1,10 @@
 # App pods can't reach the Kubernetes API or the node: a compromised app can't use a stolen
 # service-account token, the kubelet (10250) or the Talos API (50000/50001). Health probes come
 # from the node to the pod, so they are not affected.
-# Not here: system namespaces, traefik (reads Ingresses), blocky (k8s_gateway reads Services and
-# Ingresses), and CNPG Postgres pods (their instance manager talks to the API).
+# Every namespace except the ones that need the API (listed below), so a new app namespace is
+# covered without touching this file. A new system namespace must be added here, or its
+# controllers can't reach the API (they fail loudly; `mise run net:drops <namespace>` shows it).
+# Also exempt: CNPG Postgres pods in app namespaces (their instance manager talks to the API).
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
@@ -11,16 +13,25 @@ spec:
   endpointSelector:
     matchExpressions:
       - key: k8s:io.kubernetes.pod.namespace
-        operator: In
+        operator: NotIn
         values:
-          - media
-          - panio
-          - suivi-saeg
-          - whosaid
-          - jupyter
-          - cloudflareddns
-          - authelia
-          - lldap
+          - kube-system
+          - flux-system
+          - cert-manager
+          - cloudnative-pg
+          - gpu-operator
+          - kubernetes-reflector
+          - kyverno
+          - metallb
+          - openebs
+          - prometheus-operator
+          - snapshot-controller
+          - system-upgrade
+          - volsync
+          # reads Ingresses
+          - traefik
+          # k8s_gateway reads Services and Ingresses
+          - blocky
       - key: k8s:cnpg.io/cluster
         operator: DoesNotExist
   enableDefaultDeny:
