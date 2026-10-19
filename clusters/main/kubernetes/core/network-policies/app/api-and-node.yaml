@@ -1,0 +1,32 @@
+# App pods can't reach the Kubernetes API or the node: a compromised app can't use a stolen
+# service-account token, the kubelet (10250) or the Talos API (50000/50001). Health probes come
+# from the node to the pod, so they are not affected.
+# Not here: system namespaces, traefik (reads Ingresses), blocky (k8s_gateway reads Services and
+# Ingresses), and CNPG Postgres pods (their instance manager talks to the API).
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: deny-apps-to-api-and-node
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: In
+        values:
+          - media
+          - panio
+          - suivi-saeg
+          - whosaid
+          - jupyter
+          - cloudflareddns
+          - authelia
+          - lldap
+      - key: k8s:cnpg.io/cluster
+        operator: DoesNotExist
+  enableDefaultDeny:
+    egress: false
+    ingress: false
+  egressDeny:
+    - toEntities:
+        - kube-apiserver
+        - host
