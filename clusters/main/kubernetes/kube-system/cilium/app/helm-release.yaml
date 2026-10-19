@@ -100,6 +100,18 @@ spec:
                   # LAN DNS queries to Blocky: known, and most of the volume
                   - destination_pod: ["blocky/"]
                     destination_port: ["53"]
+                  # Within one namespace: always allowed by the ingress policies (Authelia ↔ Redis alone
+                  # filled the log in hours)
+                  - {source_pod: ["media/"], destination_pod: ["media/"]}
+                  - {source_pod: ["panio/"], destination_pod: ["panio/"]}
+                  - {source_pod: ["suivi-saeg/"], destination_pod: ["suivi-saeg/"]}
+                  - {source_pod: ["whosaid/"], destination_pod: ["whosaid/"]}
+                  - {source_pod: ["jupyter/"], destination_pod: ["jupyter/"]}
+                  - {source_pod: ["blocky/"], destination_pod: ["blocky/"]}
+                  - {source_pod: ["cloudflareddns/"], destination_pod: ["cloudflareddns/"]}
+                  - {source_pod: ["authelia/"], destination_pod: ["authelia/"]}
+                  - {source_pod: ["lldap/"], destination_pod: ["lldap/"]}
+                  - {source_pod: ["veggie-planner/"], destination_pod: ["veggie-planner/"]}
                 fileMaxSizeMb: 10
                 fileMaxBackups: 5
       relay:
