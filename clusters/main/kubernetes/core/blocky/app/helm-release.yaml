@@ -37,6 +37,11 @@ spec:
       dns:
         externalTrafficPolicy: Local
         loadBalancerIP: ${BLOCKY_IP}
+        # Without it the chart drops loadBalancerIP: the Service only keeps its IP from MetalLB's
+        # memory and would stay Pending if recreated (the pool doesn't auto-assign)
+        integrations:
+          metallb:
+            enabled: true
         type: LoadBalancer
     k8sgateway:
       # -- list of processed domains
