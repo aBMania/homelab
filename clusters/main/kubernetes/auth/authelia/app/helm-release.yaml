@@ -27,6 +27,22 @@ spec:
       retries: 3
   uninstall:
     keepHistory: false
+  # Valkey (the "redis" subchart) runs as uid 568 with group 0, which its image needs to write
+  # (tested: gid 568 fails on mkdir under /opt/bitnami). The chart's common library then forces
+  # runAsNonRoot false, which Pod Security "restricted" refuses; uid 568 is non-root, so say so.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: StatefulSet
+              name: authelia-redis
+            patch: |
+              - op: test
+                path: /spec/template/spec/containers/0/name
+                value: authelia-redis
+              - op: replace
+                path: /spec/template/spec/containers/0/securityContext/runAsNonRoot
+                value: true
   values:
     #        credentials:
     #            minio:
