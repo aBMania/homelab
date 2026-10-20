@@ -19,7 +19,7 @@ It is not pod monitoring. Kubernetes restarts pods on its own; an alert per rest
 ## Non-goals
 
 - Alerts for pod restarts, single app crashes that recover, CPU or memory.
-- Dashboards, metrics history, a Prometheus/Grafana stack.
+- Dashboards, metrics history, a Prometheus/Grafana stack. (Exception, added 2026-10-20: the checker's own read-only status page at `status.<domain>`, open on the LAN and behind Authelia for any user from outside.)
 - Alerts to anyone but the admin.
 - Network-policy drop alerts (containment E2): later, on the same ntfy setup, once A4 is in place. (Claude's call: the admin's list didn't include them.)
 

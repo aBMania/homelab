@@ -4,7 +4,7 @@
 
 **Goal:** The admin's Android phone gets an ntfy message when storage is in trouble or something people use is broken (Emby, requests/login, downloads, the homelab itself), and nothing else.
 
-**Architecture:** Gatus in a new `monitoring` namespace runs the in-cluster checks and sends ntfy alerts after 1 h of failure; a Python probe CronJob computes the checks Gatus can't express and pushes them to Gatus external endpoints; a second CronJob reads Gatus's history and sends "flaky" messages. Outside the cluster, healthchecks.io watches three heartbeats (cluster, TrueNAS, Emby on the LAN), and TrueNAS posts its own alerts to ntfy through its Slack alert service. Emby's public URL is checked by Gatus through public DNS, so the request goes out to the public IP and back in through the router's port forward (NAT loopback, verified working).
+**Architecture:** Gatus in a new `monitoring` namespace runs the in-cluster checks and sends ntfy alerts after 1 h of failure; a Python probe CronJob computes the checks Gatus can't express and pushes them to Gatus external endpoints; a second CronJob reads Gatus's history and sends "flaky" messages. Outside the cluster, healthchecks.io watches three heartbeats (cluster, TrueNAS, Emby on the LAN), and TrueNAS posts its own alerts to ntfy through its Slack alert service. Emby's public URL is checked by Gatus through public DNS, so the request goes out to the public IP and back in through the router's port forward (NAT loopback, verified working). Gatus's read-only page is the status page at `status.${DOMAIN_0}`: open on the LAN, any logged-in user from outside (Authelia).
 
 **Tech Stack:** Gatus v5.37.0 (bjw-s app-template 3.7.3), Python 3 stdlib (probe, flaky), curl, ntfy.sh, healthchecks.io, TrueNAS 25.10 alert services and cron tasks, Flux + SOPS.
 
@@ -20,6 +20,7 @@
 - **No media titles** in any message or log line the probe/flaky scripts print: counts only.
 - Gatus's own `${VAR}` env expansion collides with Flux substitution: write Gatus env references as `$${VAR}` in git.
 - New namespace `monitoring`: PSA `enforce/warn/audit: restricted`, `automountServiceAccountToken: false`, non-root, no Kubernetes API access (A3 already denies it).
+- Status page `status.${DOMAIN_0}`: **no login on the LAN, Authelia `one_factor` from outside for any user (no group restriction)**. Gatus's UI is read-only; its push API stays protected by `GATUS_PUSH_TOKEN`.
 - Secrets are never printed in terminal output, commits or PRs; values copied between SOPS files go through pipes, not the screen.
 
 ## Rulings in this plan (deviations from the spec's examples)
@@ -30,6 +31,7 @@
 - **Recoveries are sent at the alert's priority** (Gatus's ntfy provider has one priority per provider); the flaky job's "stable" messages use 2.
 - **TrueNAS alerts are all priority 3** (Task 4 step 1).
 - **Planned downtime** is excluded by `monitoring` scaling down with `node:down` (no results recorded); a Flux suspension without `node:down` isn't detected. Cost: a deliberate long manual outage can produce a "down" alert.
+- **Status page through Authelia rules, not a Traefik IP allow-list**: one ingress with the `auth` middleware; Authelia `bypass` for the `lan` network and `one_factor` with no subject otherwise, so access control stays in one place. Cost: a LAN device (guest Wi-Fi on the same subnet) sees the page without logging in; it shows check names and app URLs, no secrets.
 - **Emby "from outside" = Gatus via public DNS + NAT loopback**, not a third-party or GitHub Actions probe (the admin's choice): it covers stale DDNS, a broken port forward, Traefik, the certificate and Emby. Cost: an ISP-side block of inbound traffic, or a router WAN fault that leaves loopback working, isn't caught (home internet down is caught by the heartbeat).
 
 ## Review Focus
@@ -42,13 +44,14 @@
 
 ---
 
-### Task 1: Accounts, Gatus, HTTP checks, cluster heartbeat
+### Task 1: Accounts, Gatus, HTTP checks, status page, cluster heartbeat
 
 **Files:**
 - Create: `clusters/main/kubernetes/core/gatus/ks.yaml` (Kustomization `gatus`, path `clusters/main/kubernetes/core/gatus/app`, copy `core/blocky/ks.yaml`'s shape)
 - Create: `clusters/main/kubernetes/core/gatus/app/{kustomization.yaml,namespace.yaml,helm-release.yaml,gatus-data-pvc.yaml,alerting.secret.yaml,config/gatus.yaml,heartbeat-cronjob.yaml}`
 - Modify: `clusters/main/kubernetes/core/kustomization.yaml` (add `- gatus/ks.yaml`)
-- Modify: `docs/superpowers/plans/2026-10-18-network-containment.md` Task 6 (A4): add "`monitoring` → media qbittorrent:10095, radarr:7878, radarr-4k:7878, sonarr:8989, jellyseerr:10241; → authelia:9091; nothing to Emby :8096"
+- Modify: `clusters/main/kubernetes/auth/authelia/app/helm-release.yaml` (two `access_control` rules for `status.${DOMAIN_0}`, step 4b)
+- Modify: `docs/superpowers/plans/2026-10-18-network-containment.md` Task 6 (A4): add "`monitoring` → media qbittorrent:10095, radarr:7878, radarr-4k:7878, sonarr:8989, jellyseerr:10241; → authelia:9091; nothing to Emby :8096; Traefik → `monitoring` gatus:8080 (status page)"
 
 **Interfaces:**
 - Produces: Service `gatus.monitoring.svc:8080`; external endpoints (pushed by Task 2) with keys `downloads_vpn-connected`, `downloads_stalled`, `downloads_radarr-download-client`, `downloads_radarr-4k-download-client`, `downloads_sonarr-download-client`, `requests_backends`, accepting `POST /api/v1/endpoints/<key>/external?success=<bool>&error=<text>` with `Authorization: Bearer $GATUS_PUSH_TOKEN`; history at `GET /api/v1/endpoints/<key>/statuses?page=1&pageSize=500` (Task 3).
@@ -65,12 +68,25 @@
     - `emby` / `public`, 5m, `https://emby.${DOMAIN_0}/emby/System/Info/Public`, `client: {dns-resolver: "tcp://1.1.1.1:53"}` (public DNS, so the request goes to the public IP and back through the router's port forward instead of Blocky's LAN answer), conditions `[STATUS] == 200` and `[CERTIFICATE_EXPIRATION] > 72h`, "Emby unreachable at its public address for 1 h (DNS, router port forward, Traefik or Emby)"
   - `external-endpoints`: the six keys from Interfaces, `token: $${GATUS_PUSH_TOKEN}`; `downloads_vpn-connected` alert `failure-threshold: 60` (pushed every minute), the others 12.
   - Each alert's `description` is the message text; ntfy click links come from Gatus's endpoint URL.
-- [ ] **Step 4:** `helm-release.yaml` (app-template 3.7.3, like `media/decluttarr`): image `ghcr.io/twin/gatus:v5.37.0`, env from Secret `alerting`, `GATUS_CONFIG_PATH=/config/gatus.yaml`, config mounted from `gatus-config`, `/data` from PVC `gatus-data` (`local-data`, 1Gi, `kustomize.toolkit.fluxcd.io/prune: disabled`), port 8080, Service `gatus`, no ingress. Pod: `automountServiceAccountToken: false`, `runAsNonRoot`, uid/gid/fsGroup 65534, seccomp RuntimeDefault; container: no privilege escalation, drop ALL, `readOnlyRootFilesystem: true`. Probes on `/health`.
+- [ ] **Step 4:** `helm-release.yaml` (app-template 3.7.3, like `media/decluttarr`): image `ghcr.io/twin/gatus:v5.37.0`, env from Secret `alerting`, `GATUS_CONFIG_PATH=/config/gatus.yaml`, config mounted from `gatus-config`, `/data` from PVC `gatus-data` (`local-data`, 1Gi, `kustomize.toolkit.fluxcd.io/prune: disabled`), port 8080, Service `gatus`, ingress `status.${DOMAIN_0}` shaped like `media/pinchflat`'s (annotations `cert-manager.io/cluster-issuer: domain-0-le-prod`, `router.entrypoints: websecure`, `router.tls: "true"`, `router.middlewares: traefik-auth@kubernetescrd`; TLS secret `gatus-tls`). Gatus `ui: {title: Status, header: Status}`. Pod: `automountServiceAccountToken: false`, `runAsNonRoot`, uid/gid/fsGroup 65534, seccomp RuntimeDefault; container: no privilege escalation, drop ALL, `readOnlyRootFilesystem: true`. Probes on `/health`.
+- [ ] **Step 4b:** Authelia rules, inserted **before** the "Admins at home" rules (first match wins; the wildcard admin rules would otherwise demand a login on the LAN and refuse non-admins):
+  ```yaml
+          # Status page: open at home, any user from outside
+          - domain:
+              - "status.${DOMAIN_0}"
+            policy: bypass
+            networks:
+              - lan
+          - domain:
+              - "status.${DOMAIN_0}"
+            policy: one_factor
+  ```
+  Verify: `helm template` of the authelia chart with these values renders both rules in the configuration, in that order.
 - [ ] **Step 5:** `heartbeat-cronjob.yaml`: every 5 min, `curlimages/curl` (exact tag), `curl -fsS -m 10 http://gatus.monitoring.svc:8080/health && curl -fsS -m 10 --retry 3 "$HC_CLUSTER_PING_URL"` (ping only while Gatus is healthy: a dead checker stops the heartbeat). Same securityContext; `concurrencyPolicy: Forbid`, `successfulJobsHistoryLimit: 1`.
 - [ ] **Step 6:** `namespace.yaml`: `monitoring`, PSA labels `restricted` ×3. Do **not** add `monitoring` to `NODE_DOWN_KEEP_NS` (Review Focus 1); say so in a comment in `namespace.yaml`.
 - [ ] **Step 7: Validate locally.** `kustomize build clusters/main/kubernetes/core/gatus/app`, `bash scripts/kubeconform.sh ./clusters/main/kubernetes` → exit 0. Gatus parses the config: render the ConfigMap, replace `$${` with `${`, run `docker run --rm -e NTFY_TOPIC=x -e NTFY_TOKEN=x -e GATUS_PUSH_TOKEN=x -e GATUS_CONFIG_PATH=/c/gatus.yaml -v <dir>:/c ghcr.io/twin/gatus:v5.37.0` → it starts and logs the endpoints (Ctrl-C). Server dry-run of the rendered Deployment pod spec in a `restricted` namespace (as in #1069) → accepted.
-- [ ] **Step 8: Commit, PR.** `feat(monitoring): Gatus checks with ntfy alerts, cluster heartbeat`.
-- [ ] **Step 9 (after merge):** pods Running; `kubectl -n monitoring port-forward svc/gatus 8080` → `/api/v1/endpoints/statuses` shows the 3 HTTP endpoints succeeding and the 6 external ones with no results yet; healthchecks.io `cluster` check is "up". Alert path proven once (needs the user's OK): add a temporary endpoint `test/always-fails` (`http://127.0.0.1:1/`, 1m, `failure-threshold: 2`) in a PR, see one ntfy message and, after removing it, nothing more.
+- [ ] **Step 8: Commit, PR.** `feat(monitoring): Gatus checks with ntfy alerts, status page, cluster heartbeat`.
+- [ ] **Step 9 (after merge):** pods Running; `kubectl -n monitoring port-forward svc/gatus 8080` → `/api/v1/endpoints/statuses` shows the 3 HTTP endpoints succeeding and the 6 external ones with no results yet; healthchecks.io `cluster` check is "up". Status page: the Certificate `gatus-tls` is Ready before anyone opens it (Let's Encrypt limit); on the LAN `https://status.${DOMAIN_0}` opens without a login; from mobile data it redirects to Authelia, and a non-admin account (the user tries one) gets the page after its password. Alert path proven once (needs the user's OK): add a temporary endpoint `test/always-fails` (`http://127.0.0.1:1/`, 1m, `failure-threshold: 2`) in a PR, see one ntfy message and, after removing it, nothing more.
 
 ### Task 2: Probe CronJob (downloads, arrs, requests backends)
 
