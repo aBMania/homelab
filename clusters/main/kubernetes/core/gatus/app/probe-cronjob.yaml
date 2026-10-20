@@ -1,0 +1,112 @@
+---
+# Every minute, so short VPN blackouts are seen (the flaky detector reads them)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: gatus-probe-vpn
+  namespace: monitoring
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 50
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: probe
+              image: python:3.13.16-alpine3.24@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+              command: ["python", "/probe/probe.py", "vpn"]
+              env:
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+              envFrom:
+                # GATUS_PUSH_TOKEN, QBIT_USERNAME/PASSWORD, *_API_KEY
+                - secretRef:
+                    name: alerting
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: probe
+                  mountPath: /probe
+          volumes:
+            - name: probe
+              configMap:
+                name: gatus-probe
+---
+# Every 5 min: stalled downloads, arr download clients, requests backends
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: gatus-probe
+  namespace: monitoring
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 240
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: probe
+              image: python:3.13.16-alpine3.24@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+              command: ["python", "/probe/probe.py", "all"]
+              env:
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+              envFrom:
+                # GATUS_PUSH_TOKEN, QBIT_USERNAME/PASSWORD, *_API_KEY
+                - secretRef:
+                    name: alerting
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: probe
+                  mountPath: /probe
+          volumes:
+            - name: probe
+              configMap:
+                name: gatus-probe
