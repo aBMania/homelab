@@ -4,9 +4,9 @@
 
 **Goal:** The admin's Android phone gets an ntfy message when storage is in trouble or something people use is broken (Emby, requests/login, downloads, the homelab itself), and nothing else.
 
-**Architecture:** Gatus in a new `monitoring` namespace runs the in-cluster checks and sends ntfy alerts after 1 h of failure; a Python probe CronJob computes the checks Gatus can't express and pushes them to Gatus external endpoints; a second CronJob reads Gatus's history and sends "flaky" messages. Outside the cluster, healthchecks.io watches three heartbeats (cluster, TrueNAS, Emby on the LAN) plus a GitHub Actions check of Emby's public URL, and TrueNAS posts its own alerts to ntfy through its Slack alert service.
+**Architecture:** Gatus in a new `monitoring` namespace runs the in-cluster checks and sends ntfy alerts after 1 h of failure; a Python probe CronJob computes the checks Gatus can't express and pushes them to Gatus external endpoints; a second CronJob reads Gatus's history and sends "flaky" messages. Outside the cluster, healthchecks.io watches three heartbeats (cluster, TrueNAS, Emby on the LAN), and TrueNAS posts its own alerts to ntfy through its Slack alert service. Emby's public URL is checked by Gatus through public DNS, so the request goes out to the public IP and back in through the router's port forward (NAT loopback, verified working).
 
-**Tech Stack:** Gatus v5.37.0 (bjw-s app-template 3.7.3), Python 3 stdlib (probe, flaky), curl, ntfy.sh, healthchecks.io, GitHub Actions, TrueNAS 25.10 alert services and cron tasks, Flux + SOPS.
+**Tech Stack:** Gatus v5.37.0 (bjw-s app-template 3.7.3), Python 3 stdlib (probe, flaky), curl, ntfy.sh, healthchecks.io, TrueNAS 25.10 alert services and cron tasks, Flux + SOPS.
 
 **Spec:** `docs/superpowers/specs/2026-10-20-push-notifications-design.md`
 
@@ -15,8 +15,8 @@
 - One PR per task; the user merges; merging deploys. Live cluster writes (kubectl apply/patch/delete, probe pods) only with the user's explicit OK per action.
 - Down = **1 hour of continuous failure** (5-min checks: `failure-threshold: 12`; 1-min checks: `60`). One message, one recovery (`send-on-resolved: true`).
 - Flaky = over the last **6 h**, failed **> 5 %** of the time or **≥ 3 outages**; an outage = **≥ 2 consecutive failed checks**; at most **one message per check per day**; a "back to stable" message when the 6-h window is clean; **silent (log-only) for the first week**.
-- Priorities: never 5. App checks 3; TrueNAS alerts 3 (see Task 4 ruling); recoveries same as their alert (Gatus limitation, see Task 1).
-- The repo is public: no domain, public IP or user name in git, commits or PR text (`${DOMAIN_0}` via Flux substitution; secrets via SOPS). The domain may appear in ntfy messages/links and in the URL the outside check probes.
+- Priorities: never 5. App checks 3; TrueNAS alerts 3 (see Task 4 step 1); recoveries same as their alert (Gatus limitation, see Task 1).
+- The repo is public: no domain, public IP or user name in git, commits or PR text (`${DOMAIN_0}` via Flux substitution; secrets via SOPS). The domain may appear in ntfy messages and links. No GitHub Actions check of Emby (the admin doesn't want a public workflow pointing at it).
 - **No media titles** in any message or log line the probe/flaky scripts print: counts only.
 - Gatus's own `${VAR}` env expansion collides with Flux substitution: write Gatus env references as `$${VAR}` in git.
 - New namespace `monitoring`: PSA `enforce/warn/audit: restricted`, `automountServiceAccountToken: false`, non-root, no Kubernetes API access (A3 already denies it).
@@ -28,8 +28,9 @@
 - **"Requests can reach Emby/Radarr/Sonarr" = the probe reaches them** from `monitoring`, plus Jellyseerr's own status endpoint; Jellyseerr's per-server test endpoints need full server settings and its admin key. Cost: a Jellyseerr-only misconfiguration (wrong URL in its settings) isn't caught.
 - **Hand-off = arr health only** (download-client checks), not queue items in error: long-lived warning items (blocked imports) would alert forever, and Decluttarr already removes failed ones. Cost: an import failure that isn't a client outage isn't alerted.
 - **Recoveries are sent at the alert's priority** (Gatus's ntfy provider has one priority per provider); the flaky job's "stable" messages use 2.
-- **TrueNAS alerts are all priority 3** (Task 4 step 3).
+- **TrueNAS alerts are all priority 3** (Task 4 step 1).
 - **Planned downtime** is excluded by `monitoring` scaling down with `node:down` (no results recorded); a Flux suspension without `node:down` isn't detected. Cost: a deliberate long manual outage can produce a "down" alert.
+- **Emby "from outside" = Gatus via public DNS + NAT loopback**, not a third-party or GitHub Actions probe (the admin's choice): it covers stale DDNS, a broken port forward, Traefik, the certificate and Emby. Cost: an ISP-side block of inbound traffic, or a router WAN fault that leaves loopback working, isn't caught (home internet down is caught by the heartbeat).
 
 ## Review Focus
 
@@ -53,7 +54,7 @@
 - Produces: Service `gatus.monitoring.svc:8080`; external endpoints (pushed by Task 2) with keys `downloads_vpn-connected`, `downloads_stalled`, `downloads_radarr-download-client`, `downloads_radarr-4k-download-client`, `downloads_sonarr-download-client`, `requests_backends`, accepting `POST /api/v1/endpoints/<key>/external?success=<bool>&error=<text>` with `Authorization: Bearer $GATUS_PUSH_TOKEN`; history at `GET /api/v1/endpoints/<key>/statuses?page=1&pageSize=500` (Task 3).
 - Produces: Secret `monitoring/alerting` keys `NTFY_TOPIC`, `NTFY_TOKEN`, `GATUS_PUSH_TOKEN`, `HC_CLUSTER_PING_URL`, `QBIT_USERNAME`, `QBIT_PASSWORD`, `RADARR_API_KEY`, `RADARR_4K_API_KEY`, `SONARR_API_KEY`.
 
-- [ ] **Step 1 (user):** create a free ntfy.sh account, an access token, and a reserved topic; subscribe in the Android app. Create a healthchecks.io account with an **ntfy integration** (server `https://ntfy.sh`, the topic, the token, priority 3) and four checks, period 5 min, grace 55 min: `cluster`, `truenas`, `emby-lan`, `emby-outside`. Send one test notification from healthchecks.io; it arrives on the phone.
+- [ ] **Step 1 (user):** create a free ntfy.sh account, an access token, and a reserved topic; subscribe in the Android app. Create a healthchecks.io account with an **ntfy integration** (server `https://ntfy.sh`, the topic, the token, priority 3) and three checks, period 5 min, grace 55 min: `cluster`, `truenas`, `emby-lan`. Send one test notification from healthchecks.io; it arrives on the phone.
 - [ ] **Step 2:** write `alerting.secret.yaml` (namespace `monitoring`, `stringData`) and encrypt it with `sops -e -i`. The user types the ntfy/healthchecks values into the file themselves (or pipes them in); the qBittorrent/arr values are piped from `media/decluttarr/app/decluttarr.secret.yaml` with `sops -d … | yq … | ` into the new file, never printed. `GATUS_PUSH_TOKEN`: 32 random bytes (`openssl rand -hex 32`, piped). Verify: `mise run sops:check` passes; `sops -d alerting.secret.yaml | yq '.stringData | keys'` lists exactly the 9 keys.
 - [ ] **Step 3:** `config/gatus.yaml`, turned into ConfigMap `gatus-config` by `configMapGenerator` (`disableNameSuffixHash: false`, so a config change rolls the pod). Pinned values:
   - `storage: {type: sqlite, path: /data/data.db, maximum-number-of-results: 500, maximum-number-of-events: 100}`
@@ -61,7 +62,7 @@
   - endpoints (group / name, interval, URL, conditions, alert description):
     - `requests` / `public`, 5m, `https://requests.${DOMAIN_0}/`, `[STATUS] < 400` (Authelia's 302 counts), `client: {ignore-redirect: true}`, "Requests: unreachable through Traefik/Authelia for 1 h"
     - `login` / `authelia`, 5m, `http://authelia.authelia.svc:9091/api/health`, `[STATUS] == 200`, "Login portal down for 1 h"
-    - `emby` / `public-via-router`, 5m, `https://emby.${DOMAIN_0}/emby/System/Info/Public`, `[STATUS] == 200`, "Emby unreachable through Traefik for 1 h" (NAT-loopback view; the true outside view is Task 4)
+    - `emby` / `public`, 5m, `https://emby.${DOMAIN_0}/emby/System/Info/Public`, `client: {dns-resolver: "tcp://1.1.1.1:53"}` (public DNS, so the request goes to the public IP and back through the router's port forward instead of Blocky's LAN answer), conditions `[STATUS] == 200` and `[CERTIFICATE_EXPIRATION] > 72h`, "Emby unreachable at its public address for 1 h (DNS, router port forward, Traefik or Emby)"
   - `external-endpoints`: the six keys from Interfaces, `token: $${GATUS_PUSH_TOKEN}`; `downloads_vpn-connected` alert `failure-threshold: 60` (pushed every minute), the others 12.
   - Each alert's `description` is the message text; ntfy click links come from Gatus's endpoint URL.
 - [ ] **Step 4:** `helm-release.yaml` (app-template 3.7.3, like `media/decluttarr`): image `ghcr.io/twin/gatus:v5.37.0`, env from Secret `alerting`, `GATUS_CONFIG_PATH=/config/gatus.yaml`, config mounted from `gatus-config`, `/data` from PVC `gatus-data` (`local-data`, 1Gi, `kustomize.toolkit.fluxcd.io/prune: disabled`), port 8080, Service `gatus`, no ingress. Pod: `automountServiceAccountToken: false`, `runAsNonRoot`, uid/gid/fsGroup 65534, seccomp RuntimeDefault; container: no privilege escalation, drop ALL, `readOnlyRootFilesystem: true`. Probes on `/health`.
@@ -132,24 +133,21 @@
 - [ ] **Step 6: Validate, commit, PR** `feat(monitoring): flaky detector (log-only for a week)`.
 - [ ] **Step 7 (after merge):** job logs show one line per key with its verdict; `/state/flaky.json` written; no ntfy message sent.
 
-### Task 4: Outside checks and TrueNAS (user UI steps)
+### Task 4: TrueNAS alerts, TrueNAS cron, runbook (user UI steps)
 
 **Files:**
-- Create: `.github/workflows/emby-outside.yaml`
 - Create: `docs/push-notifications.md` (runbook: what alerts exist, what each means, where to look, how to pause during long maintenance, the TrueNAS steps below)
 - Modify: `AGENTS.md` (Operations notes: 3-line "Alerts" pointer to the runbook; mention pausing healthchecks.io checks before a long `node:down`)
 
 **Interfaces:**
-- Consumes: healthchecks.io checks `truenas`, `emby-lan`, `emby-outside` (Task 1 step 1).
+- Consumes: healthchecks.io checks `truenas`, `emby-lan` (Task 1 step 1).
 
-- [ ] **Step 1:** `emby-outside.yaml`: `on: schedule: [{cron: "*/5 * * * *"}]` plus `workflow_dispatch`; one job, `ubuntu-latest`, `timeout-minutes: 2`, `permissions: {}`; step: `curl -fsS -m 20 "$EMBY_PUBLIC_URL" >/dev/null && curl -fsS -m 10 --retry 3 "$HC_EMBY_OUTSIDE_URL"`, both from repository **secrets** (nothing in the file names the domain). Note in the file: GitHub may delay scheduled runs; the 55-min grace absorbs it.
-- [ ] **Step 2 (user):** `gh secret set EMBY_PUBLIC_URL` (value `https://emby.<domain>/emby/System/Info/Public`) and `gh secret set HC_EMBY_OUTSIDE_URL`, typed by the user (`! gh secret set …` prompts for the value). Run the workflow once with `gh workflow run emby-outside.yaml`; healthchecks.io `emby-outside` turns "up".
-- [ ] **Step 3: TrueNAS alert service (user, UI).** TrueNAS 25.10 has no ntfy or generic webhook service (checked: `middlewared/alert/service/` has aws_sns, influxdb, mail, mattermost, opsgenie, pagerduty, slack, snmp_trap, telegram, victorops). The **Slack** service posts `{"text": "…"}`; ntfy turns it into a message with templating (verified on a throwaway topic). Add a Slack alert service, level **Warning**, URL `https://ntfy.sh/<topic>?tpl=yes&t=TrueNAS&m={{.text}}&auth=<base64url("Bearer <token>") without padding>`; press "Send Test Alert" → message on the phone. Ruling: TrueNAS can't vary the request per alert level, so all TrueNAS alerts use priority 3 (the spec's "Critical → 4" isn't possible with this path; acceptable since nothing may ring anyway).
-- [ ] **Step 4: TrueNAS cron task (user, UI):** every 5 min, user `root` not required (any user with network access), command:
+- [ ] **Step 1: TrueNAS alert service (user, UI).** TrueNAS 25.10 has no ntfy or generic webhook service (checked: `middlewared/alert/service/` has aws_sns, influxdb, mail, mattermost, opsgenie, pagerduty, slack, snmp_trap, telegram, victorops). The **Slack** service posts `{"text": "…"}`; ntfy turns it into a message with templating (verified on a throwaway topic). Add a Slack alert service, level **Warning**, URL `https://ntfy.sh/<topic>?tpl=yes&t=TrueNAS&m={{.text}}&auth=<base64url("Bearer <token>") without padding>`; press "Send Test Alert" → message on the phone. Ruling: TrueNAS can't vary the request per alert level, so all TrueNAS alerts use priority 3 (the spec's "Critical → 4" isn't possible with this path; acceptable since nothing may ring anyway).
+- [ ] **Step 2: TrueNAS cron task (user, UI):** every 5 min, user `root` not required (any user with network access), command:
   `curl -fsS -m 10 --retry 3 '<HC truenas URL>' >/dev/null; curl -fsS -m 10 http://192.168.1.112:8096/emby/System/Info/Public >/dev/null && curl -fsS -m 10 --retry 3 '<HC emby-lan URL>' >/dev/null`
   healthchecks.io `truenas` and `emby-lan` turn "up" within 10 min.
-- [ ] **Step 5:** runbook + AGENTS.md pointer; commit; PR `feat(monitoring): outside Emby check, TrueNAS alerts runbook`.
-- [ ] **Step 6 (after merge, with the user):** all four healthchecks.io checks "up"; Gatus all green; a 24 h period with normal use produces no message.
+- [ ] **Step 3:** runbook + AGENTS.md pointer; commit; PR `docs(monitoring): alerts runbook, TrueNAS steps`.
+- [ ] **Step 4 (after merge, with the user):** all three healthchecks.io checks "up"; Gatus all green; a 24 h period with normal use produces no message.
 
 ### Task 5: Turn on flaky notifications (after one silent week)
 
