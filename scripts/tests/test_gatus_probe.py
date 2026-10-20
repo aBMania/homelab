@@ -149,6 +149,14 @@ class TestMain(unittest.TestCase):
         self.assertEqual(by_key["downloads_radarr-4k-download-client"], "false")
         self.assertEqual(by_key["downloads_radarr-download-client"], "true")
 
+    def test_login_ok_with_empty_body(self):
+        # qBittorrent >= 5.2 answers a successful login with an empty body (older: "Ok.")
+        routes = self.healthy_routes()
+        routes[("POST", "qbittorrent", "/api/v2/auth/login")] = ""
+        http = FakeHttp(routes)
+        probe.main("vpn", http=http)
+        self.assertEqual(http.pushes[0][:2], ("downloads_vpn-connected", "true"))
+
     def test_push_failure_exits_nonzero(self):
         # Gatus refuses the token: the Job must fail visibly (and the heartbeat goes red)
         class Refusing(FakeHttp):
