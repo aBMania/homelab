@@ -19,7 +19,7 @@ It is not pod monitoring. Kubernetes restarts pods on its own; an alert per rest
 ## Non-goals
 
 - Alerts for pod restarts, single app crashes that recover, CPU or memory.
-- Dashboards, metrics history, a Prometheus/Grafana stack.
+- Dashboards, metrics history, a Prometheus/Grafana stack. (Exception, added 2026-10-20: the checker's own read-only status page at `status.<domain>`, open on the LAN and behind Authelia for any user from outside.)
 - Alerts to anyone but the admin.
 - Network-policy drop alerts (containment E2): later, on the same ntfy setup, once A4 is in place. (Claude's call: the admin's list didn't include them.)
 
@@ -88,7 +88,7 @@ Storage capacity: TrueNAS's own pool-capacity alerts with its default thresholds
 ## Left to the builder
 
 - **Gatus vs another checker**, if Gatus can't express a check. Gatus alerts on consecutive failures only, so the **flaky** rule needs something on top (e.g. a small CronJob reading each check's history or uptime from Gatus's API and sending its own ntfy message, remembering what it already sent). The "stalled" check needs state across runs too (a script that computes yes/no and pushes to Gatus's external-endpoint API is fine).
-- **Outside view of Emby**: the in-cluster check of the public URL goes out and back through the router (NAT loopback), not truly from the internet. Options: an external uptime service with ntfy or webhook support, or accept the NAT-loopback check plus the dead man's switch. Pick the simplest that really tests from outside; say which.
+- ~~Outside view of Emby~~: **decided (2026-10-20, the admin): Gatus checks the public URL through public DNS (1.1.1.1)**, so the request goes to the public IP and back in through the router's port forward (NAT loopback, verified working). It catches stale DDNS, a broken port forward, Traefik, the certificate and Emby; not an ISP-side inbound block. No GitHub Actions or third-party probe (the admin doesn't want a public workflow pointing at Emby).
 - **API credentials** the checks need (qBittorrent, gluetun control server — it already warns about missing auth —, Jellyseerr, Radarr/Sonarr keys): read-only where possible, stored as SOPS secrets, never printed.
 - **TrueNAS → ntfy** method (native, webhook, or minimal forwarder) after checking TrueNAS 25.10's alert services; the cron script's exact form (TrueNAS cron task running `curl`), given to the admin to paste with secrets filled in by them.
 - How the checker and pinger fit the containment policies (namespace, PSA `restricted`, no API token, A4 allow rules). Decided: the cluster checker doesn't call Emby's port 8096 directly (the LAN check runs on TrueNAS), so A4's Emby rule keeps no exception.
