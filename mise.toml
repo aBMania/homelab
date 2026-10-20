@@ -97,6 +97,10 @@ run = "bash scripts/net-inbound.sh"
 description = "Aggregate Radarr/Sonarr(/radarr-4k) stats: counts by profile, resolution, audio vs original language, queue, grabs in 24h (no titles). Readable text; --json for raw JSON"
 run = "bash -c 'source scripts/arr.sh && python3 -I scripts/media_stats.py \"$@\"' media-stats"
 
+[tasks."media:usage"]
+description = "Removal candidates: series > 100 GB and movies > 50 GB scored by Emby watch time per user (anonymised: app ids, U1..Un). --names shows titles/users (owner only), --json, --min-series-gb N, --min-movie-gb N"
+run = "bash -c 'source scripts/arr.sh && source scripts/emby.sh && python3 scripts/media_usage.py \"$@\"' media-usage"
+
 [tasks."media:prioritize"]
 description = "Reorder the qBittorrent queue: Jellyseerr requests > newly available > 4K twins > upgrades (no titles). Dry run unless --apply"
 run = "bash -c 'source scripts/arr.sh && python3 scripts/media_prioritize.py \"$@\"' media-prioritize"
