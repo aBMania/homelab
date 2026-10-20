@@ -1,0 +1,17 @@
+---
+# What the flaky detector already sent (one message per check per day), on local-data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: flaky-state
+  namespace: monitoring
+  annotations:
+    # keep the data if the PVC is ever removed from git (prune: true)
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-data
+  resources:
+    requests:
+      storage: 64Mi

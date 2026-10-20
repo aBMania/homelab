@@ -1,0 +1,72 @@
+---
+# Flaky detector: reads 6 h of Gatus history every 15 min and sends at most one "flaky" message
+# per check per day. Log-only (FLAKY_NOTIFY "false") for the first week.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: gatus-flaky
+  namespace: monitoring
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            # makes the state PVC writable
+            fsGroup: 65534
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: flaky
+              image: python:3.13.16-alpine3.24@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+              command: ["python", "/flaky/flaky.py"]
+              env:
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+                - name: FLAKY_NOTIFY
+                  value: "false"
+                - name: NTFY_TOPIC
+                  valueFrom:
+                    secretKeyRef:
+                      name: alerting
+                      key: NTFY_TOPIC
+                - name: NTFY_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: alerting
+                      key: NTFY_TOKEN
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: flaky
+                  mountPath: /flaky
+                - name: state
+                  mountPath: /state
+          volumes:
+            - name: flaky
+              configMap:
+                name: gatus-flaky
+            - name: state
+              persistentVolumeClaim:
+                claimName: flaky-state
