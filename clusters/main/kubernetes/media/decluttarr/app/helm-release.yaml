@@ -71,9 +71,9 @@ spec:
                   - "*already imported at*"
                   - "Episode file on disk contains more episodes than this file contains"
                   - "Caution: Found*"
-              # Private trackers (C411) count a deleted download as a hit-and-run and the ratio
+              # Private trackers count a deleted download as a hit-and-run and the ratio
               # suffers: their downloads leave the *arr queue (new search) but stay in
-              # qBittorrent to keep seeding (2026-10-20: 2 finished C411 downloads deleted)
+              # qBittorrent to keep seeding (2026-10-20: 2 finished private downloads deleted)
               PRIVATE_TRACKER_HANDLING: remove_from_queue
               # $(VAR) is expanded by Kubernetes from the envFrom secret above
               SONARR: |
