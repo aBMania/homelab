@@ -97,7 +97,8 @@ def get_json(http, url, headers=None):
 def qbit_login(http):
     _, body = http.request("POST", f"{QBIT}/api/v2/auth/login", data={
         "username": os.environ["QBIT_USERNAME"], "password": os.environ["QBIT_PASSWORD"]})
-    if body.strip() != b"Ok.":
+    # "Ok." up to qBittorrent 5.1, an empty body since 5.2 (refusals: "Fails." or HTTP 401)
+    if body.strip() not in (b"Ok.", b""):
         raise RuntimeError("qBittorrent login refused")
 
 
