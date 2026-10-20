@@ -56,10 +56,26 @@ class TestAssess(unittest.TestCase):
         self.assertTrue(v.flaky)
 
     def test_ratio_over_5_percent_is_flaky(self):
-        v = flaky.assess(series(run(100, 20)), NOW, MIN)
-        self.assertEqual(v.outage_count, 1)
-        self.assertAlmostEqual(v.failed_ratio, 20 / 360, places=3)
+        v = flaky.assess(series(run(100, 12) | run(200, 10)), NOW, MIN)
+        self.assertEqual(v.outage_count, 2)
+        self.assertAlmostEqual(v.failed_ratio, 22 / 360, places=3)
         self.assertTrue(v.flaky)
+
+    def test_single_long_outage_not_flaky(self):
+        # one 25-min incident is not "repeated short outages"
+        self.assertFalse(flaky.assess(series(run(100, 25)), NOW, MIN).flaky)
+
+    def test_open_outage_not_counted(self):
+        # failing for the last 30 min (not yet down for 1 h): Gatus's own alert handles it
+        v = flaky.assess(series(run(50, 3) | run(150, 3) | run(330, 30)), NOW, MIN)
+        self.assertEqual(v.outage_count, 2)
+        self.assertFalse(v.flaky)
+
+    def test_recovered_long_outage_not_counted(self):
+        # a 70-min outage already alerted by Gatus ("down for 1 h") doesn't also make it flaky
+        v = flaky.assess(series(run(100, 70) | run(250, 3)), NOW, MIN)
+        self.assertEqual(v.outage_count, 1)
+        self.assertFalse(v.flaky)
 
     def test_under_thresholds_not_flaky(self):
         v = flaky.assess(series(run(50, 5) | run(200, 5)), NOW, MIN)

@@ -1,7 +1,8 @@
 """Sends "flaky" ntfy messages from Gatus's history (Gatus itself only alerts on 1 h outages).
 
-Flaky = over the last 6 h, failed > 5 % of the time or >= 3 outages, an outage being >= 2
-consecutive failed checks, while not down right now. At most one message per check per day,
+Flaky = over the last 6 h, >= 3 outages, or >= 2 outages adding up to > 5 % of the time; an
+outage is >= 2 consecutive failed checks, finished and shorter than 1 h (longer ones are
+Gatus's own "down" alert). At most one message per check per day,
 and a "back to stable" message once the window has no outage. FLAKY_NOTIFY=false only logs.
 """
 import json
@@ -58,14 +59,18 @@ def outages(results, now, window, interval):
 
 def assess(results, now, interval):
     points, runs = _runs(results, now, WINDOW, interval)
-    real = [r for r in runs if len(r) >= 2]
-    failed = sum(len(r) for r in real)
+    down_now = bool(runs) and bool(points) and not points[-1][1] and len(runs[-1]) * interval >= DOWN
+    # Only short, finished outages count: one still open, or one that lasted 1 h (Gatus's own
+    # "down" alert), is a single incident, not repeated short outages
+    open_run = runs[-1] if runs and points and not points[-1][1] else None
+    counted = [r for r in runs
+               if len(r) >= 2 and r is not open_run and len(r) * interval < DOWN]
+    failed = sum(len(r) for r in counted)
     # Share of the whole window, not of the results seen: a fresh Gatus with few results
     # isn't flaky after one short outage (5 % of 6 h = 18 min)
     ratio = failed * interval / WINDOW
-    down_now = bool(runs) and bool(points) and not points[-1][1] and len(runs[-1]) * interval >= DOWN
-    flaky = (ratio > MAX_RATIO or len(real) >= MAX_OUTAGES) and not down_now
-    return Verdict(flaky=flaky, down_now=down_now, outage_count=len(real),
+    flaky = (len(counted) >= MAX_OUTAGES or (len(counted) >= 2 and ratio > MAX_RATIO)) and not down_now
+    return Verdict(flaky=flaky, down_now=down_now, outage_count=len(counted),
                    failed_minutes=int(failed * interval / timedelta(minutes=1)),
                    failed_ratio=ratio)
 
