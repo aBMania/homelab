@@ -141,6 +141,12 @@ def collect(arrs, emby, min_series_gb=100, min_movie_gb=50, now=None):
                 "monitored": s.get("monitored"), "emby": _match_series(s, emby_series),
                 "action": "delete series"})
     radarr = {m.get("tmdbId"): m for m in arrs["radarr"].get("/api/v3/movie")} if arrs.get("radarr") else {}
+    # 1080p entries that imported the 4K file (a hardlink, same size): listed once, on the 4K row
+    shared = {m.get("tmdbId") for m in (arrs["radarr_4k"].get("/api/v3/movie") if arrs.get("radarr_4k") and radarr else [])
+              if m.get("hasFile") and radarr.get(m.get("tmdbId"), {}).get("sizeOnDisk") == m.get("sizeOnDisk")}
+    # 1080p entries that imported the 4K file (a hardlink, same size): listed once, on the 4K row
+    shared = {m.get("tmdbId") for m in (arrs["radarr_4k"].get("/api/v3/movie") if arrs.get("radarr_4k") and radarr else [])
+              if m.get("hasFile") and radarr.get(m.get("tmdbId"), {}).get("sizeOnDisk") == m.get("sizeOnDisk")}
     emby_movies = None
     for app in ("radarr", "radarr_4k"):
         arr = arrs.get(app)
@@ -149,7 +155,7 @@ def collect(arrs, emby, min_series_gb=100, min_movie_gb=50, now=None):
         tags = {t["id"]: t["label"] for t in arr.get("/api/v3/tag")}
         movies = radarr.values() if app == "radarr" else arr.get("/api/v3/movie")
         for m in movies:
-            if m.get("sizeOnDisk", 0) <= min_movie_gb * GB:
+            if m.get("sizeOnDisk", 0) <= min_movie_gb * GB or (app == "radarr" and m.get("tmdbId") in shared):
                 continue
             if emby_movies is None:
                 emby_movies = _emby_items(emby, "Movie")
@@ -159,7 +165,9 @@ def collect(arrs, emby, min_series_gb=100, min_movie_gb=50, now=None):
             twin = radarr.get(m.get("tmdbId")) if app == "radarr_4k" else None
             if twin:
                 row["emby"] += [i for i in _match_movie(twin, emby_movies) if i not in row["emby"]]
-                row["action"] = "drop 4K (1080p kept)" if twin.get("hasFile") else "drop 4K (1080p twin to download)"
+                row["action"] = ("drop 4K (1080p kept)" if twin.get("hasFile") else "drop 4K (1080p twin to download)")
+                if m.get("tmdbId") in shared:
+                    row["action"] = f"same file as R{twin['id']}: replace 1080p, then drop 4K"
             rows.append(row)
     for row in rows:
         # age: the earliest of the app's date and Emby's: radarr-4k movies and their re-added 1080p
@@ -199,26 +207,35 @@ def collect(arrs, emby, min_series_gb=100, min_movie_gb=50, now=None):
     return rows
 
 
+def table(header, rows, right):
+    """Columns sized to their widest cell; `right` = indexes of right-aligned columns."""
+    widths = [max(len(str(c)) for c in col) for col in zip(header, *rows)]
+    fmt = lambda cells: "  ".join(
+        (str(c).rjust(w) if i in right else str(c).ljust(w)) for i, (c, w) in enumerate(zip(cells, widths))).rstrip()
+    return [fmt(header), "  ".join("-" * w for w in widths)] + [fmt(r) for r in rows]
+
+
 def render(rows, names=False):
-    lines = [f"{'rank':>4} {'item':<8} {'score':>5} {'size':>7} {'runtime':>7} {'viewers':>7} "
-             f"{'last played':>16} {'age':>5}  action / details | per user: coverage% (hours incl. rewatches) / last played"]
+    header = ["rank", "item"] + (["title"] if names else []) + [
+        "score", "size", "runtime", "viewers", "last played", "ago", "age", "action", "details",
+        "per user: coverage% (hours incl. rewatches) / last played"]
+    cells = []
     for n, r in enumerate(rows, 1):
-        item = f"{PREFIX[r['app']]}{r['id']}"
         details = (f"{r['seasons']} seasons, {r['episodes']} eps, {'ended' if r['ended'] else 'continuing'}"
-                   if r["kind"] == "series" else r["app"])
+                   if r["kind"] == "series" else "")
         if r["requested"]:
-            details += ", requested"
-        users = " ".join(
+            details = ", ".join(filter(None, [details, "requested"]))
+        users = "  ".join(
             f"{u['name'] if names else u['user']}:{int(100 * u['uniq'] / max(r['runtime'], 1))}%"
             f"({int(u['total'] // 60)}h)/{u['last_played'] or '?'}"
             for u in sorted(r["users"], key=lambda u: -u["uniq"])) or "-"
-        last = f"{r['last_played']} {r['last_days']}d" if r["last_played"] else "never"
-        age = f"{r['age_days']}d" if r["age_days"] is not None else "?"
-        line = (f"{n:>4} {item:<8} {r['score']:>5} {r['size'] / GB:>5.0f}GB {r['runtime'] / 60:>6.0f}h "
-                f"{r['viewers']:>7} {last:>16} {age:>5}  {r['action']}: {details} | {users}")
-        if names:
-            line += f" | {r['title']}"
-        lines.append(line)
+        cells.append([n, f"{PREFIX[r['app']]}{r['id']}"] + ([r["title"]] if names else []) + [
+            r["score"], f"{r['size'] / GB:.0f}GB", f"{r['runtime'] / 60:.0f}h", r["viewers"],
+            r["last_played"] or "never", f"{r['last_days']}d" if r["last_played"] else "",
+            f"{r['age_days']}d" if r["age_days"] is not None else "?",
+            r["action"], details or "-", users])
+    off = 1 if names else 0
+    lines = table(header, cells, right={0, 2 + off, 3 + off, 4 + off, 5 + off, 7 + off, 8 + off})
     total = sum(r["size"] for r in rows)
     lines.append(f"{len(rows)} items, {total / 1e12:.2f} TB")
     return "\n".join(lines)
