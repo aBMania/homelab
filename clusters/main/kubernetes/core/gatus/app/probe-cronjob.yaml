@@ -32,7 +32,7 @@ spec:
                 - name: PYTHONDONTWRITEBYTECODE
                   value: "1"
               envFrom:
-                # GATUS_PUSH_TOKEN, QBIT_USERNAME/PASSWORD, *_API_KEY
+                # GATUS_PUSH_TOKEN, QBIT_API_KEY, *_API_KEY
                 - secretRef:
                     name: alerting
               resources:
@@ -88,7 +88,7 @@ spec:
                 - name: PYTHONDONTWRITEBYTECODE
                   value: "1"
               envFrom:
-                # GATUS_PUSH_TOKEN, QBIT_USERNAME/PASSWORD, *_API_KEY
+                # GATUS_PUSH_TOKEN, QBIT_API_KEY, *_API_KEY
                 - secretRef:
                     name: alerting
               resources:

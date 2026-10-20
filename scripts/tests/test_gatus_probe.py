@@ -18,6 +18,7 @@ class FakeHttp:
     def __init__(self, routes):
         self.routes = routes
         self.pushes = []
+        self.calls = []
 
     def request(self, method, url, data=None, headers=None, timeout=10):
         u = urlparse(url)
@@ -26,9 +27,12 @@ class FakeHttp:
             key = u.path.split("/")[-2]
             self.pushes.append((key, q["success"][0], q.get("error", [""])[0], headers))
             return 200, b""
+        self.calls.append((method, u.netloc.split(".")[0], u.path, headers))
         body = self.routes.get((method, u.netloc.split(".")[0], u.path))
         if body is None:
             raise OSError(f"no route {method} {url}")
+        if isinstance(body, Exception):
+            raise body
         if isinstance(body, (dict, list)):
             body = json.dumps(body)
         return 200, body.encode()
@@ -90,7 +94,7 @@ class TestChecks(unittest.TestCase):
         self.assertTrue(ok)
 
 
-ENV = {"GATUS_PUSH_TOKEN": "pt", "QBIT_USERNAME": "u", "QBIT_PASSWORD": "p",
+ENV = {"GATUS_PUSH_TOKEN": "pt", "QBIT_API_KEY": "qk",
        "RADARR_API_KEY": "r", "RADARR_4K_API_KEY": "r4", "SONARR_API_KEY": "s"}
 
 
@@ -105,7 +109,6 @@ class TestMain(unittest.TestCase):
 
     def healthy_routes(self):
         return {
-            ("POST", "qbittorrent", "/api/v2/auth/login"): "Ok.",
             ("GET", "qbittorrent", "/api/v2/transfer/info"): {"connection_status": "connected",
                                                                "dl_info_speed": 0},
             ("GET", "qbittorrent", "/api/v2/torrents/info"): [torrent("downloading", seeds=2)],
@@ -117,16 +120,25 @@ class TestMain(unittest.TestCase):
             ("GET", "jellyseerr", "/api/v1/status"): {"version": "2"},
         }
 
-    def test_login_failure_reports_failure(self):
+    def test_refused_api_key_reports_failure(self):
         routes = self.healthy_routes()
-        routes[("POST", "qbittorrent", "/api/v2/auth/login")] = "Fails."
+        routes[("GET", "qbittorrent", "/api/v2/transfer/info")] = OSError("HTTP Error 403: Forbidden")
         http = FakeHttp(routes)
         self.assertEqual(probe.main("vpn", http=http), 0)
         self.assertEqual(len(http.pushes), 1)
         key, success, error, headers = http.pushes[0]
         self.assertEqual((key, success), ("downloads_vpn-connected", "false"))
-        self.assertIn("login", error)
+        self.assertIn("403", error)
         self.assertEqual(headers["Authorization"], "Bearer pt")
+
+    def test_qbittorrent_calls_use_the_api_key(self):
+        # qBittorrent >= 5.2: a Bearer API key on every request, no login/session cookie
+        http = FakeHttp(self.healthy_routes())
+        probe.main("all", http=http)
+        qbit = [c for c in http.calls if c[1] == "qbittorrent"]
+        self.assertTrue(qbit)
+        self.assertFalse([c for c in qbit if c[2] == "/api/v2/auth/login"])
+        self.assertTrue(all((h or {}).get("Authorization") == "Bearer qk" for *_, h in qbit))
 
     def test_all_mode_pushes_five_keys(self):
         http = FakeHttp(self.healthy_routes())
@@ -148,14 +160,6 @@ class TestMain(unittest.TestCase):
         self.assertEqual(len(by_key), 5)
         self.assertEqual(by_key["downloads_radarr-4k-download-client"], "false")
         self.assertEqual(by_key["downloads_radarr-download-client"], "true")
-
-    def test_login_ok_with_empty_body(self):
-        # qBittorrent >= 5.2 answers a successful login with an empty body (older: "Ok.")
-        routes = self.healthy_routes()
-        routes[("POST", "qbittorrent", "/api/v2/auth/login")] = ""
-        http = FakeHttp(routes)
-        probe.main("vpn", http=http)
-        self.assertEqual(http.pushes[0][:2], ("downloads_vpn-connected", "true"))
 
     def test_push_failure_exits_nonzero(self):
         # Gatus refuses the token: the Job must fail visibly (and the heartbeat goes red)
