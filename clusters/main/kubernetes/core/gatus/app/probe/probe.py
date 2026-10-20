@@ -5,7 +5,6 @@
 
 Messages and logs carry counts only, never torrent or media names.
 """
-import http.cookiejar
 import json
 import os
 import sys
@@ -27,16 +26,10 @@ DOWNLOAD_CLIENT_SOURCES = {"DownloadClientCheck", "DownloadClientStatusCheck"}
 
 
 class Http:
-    """urllib with a cookie jar (qBittorrent's login sets a session cookie)."""
-
-    def __init__(self):
-        self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-
     def request(self, method, url, data=None, headers=None, timeout=10):
         body = urllib.parse.urlencode(data).encode() if data is not None else None
         req = urllib.request.Request(url, data=body, method=method, headers=headers or {})
-        with self.opener.open(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status, resp.read()
 
 
@@ -94,12 +87,9 @@ def get_json(http, url, headers=None):
     return json.loads(body)
 
 
-def qbit_login(http):
-    _, body = http.request("POST", f"{QBIT}/api/v2/auth/login", data={
-        "username": os.environ["QBIT_USERNAME"], "password": os.environ["QBIT_PASSWORD"]})
-    # "Ok." up to qBittorrent 5.1, an empty body since 5.2 (refusals: "Fails." or HTTP 401)
-    if body.strip() not in (b"Ok.", b""):
-        raise RuntimeError("qBittorrent login refused")
+def qbit_get(http, path):
+    # qBittorrent >= 5.2 API key: no login, no session cookie
+    return get_json(http, f"{QBIT}{path}", headers={"Authorization": f"Bearer {os.environ['QBIT_API_KEY']}"})
 
 
 def arr_get(http, app, path):
@@ -131,13 +121,7 @@ def main(mode, http=None):
 
     def qbit_state():
         if not qbit:
-            try:
-                qbit_login(http)
-            except RuntimeError:
-                raise
-            except Exception as e:
-                raise RuntimeError(f"qBittorrent login failed ({type(e).__name__})") from e
-            qbit["transfer"] = get_json(http, f"{QBIT}/api/v2/transfer/info")
+            qbit["transfer"] = qbit_get(http, "/api/v2/transfer/info")
         return qbit
 
     if mode == "vpn":
@@ -146,7 +130,7 @@ def main(mode, http=None):
 
     def stalled_check():
         state = qbit_state()
-        torrents = get_json(http, f"{QBIT}/api/v2/torrents/info?filter=all")
+        torrents = qbit_get(http, "/api/v2/torrents/info?filter=all")
         return stalled(torrents, state["transfer"])
 
     pushed = [run("downloads_stalled", stalled_check, http)]
