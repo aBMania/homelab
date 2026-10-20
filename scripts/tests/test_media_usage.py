@@ -48,7 +48,7 @@ def ep(hours=1.0, played=False, pos_h=0.0, count=1, last=None):
                          "PlaybackPositionTicks": int(pos_h * HOUR), "LastPlayedDate": last}}
 
 
-def fixture(viewer_last_days=400, added_days=400, twin_has_file=True):
+def fixture(viewer_last_days=400, added_days=400, twin_has_file=True, twin_gb=10):
     sonarr = FakeArr({
         "/api/v3/tag": [{"id": 1, "label": "7-somebody"}],
         "/api/v3/series": [
@@ -64,7 +64,7 @@ def fixture(viewer_last_days=400, added_days=400, twin_has_file=True):
     radarr = FakeArr({
         "/api/v3/tag": [],
         "/api/v3/movie": [{"id": 21, "title": "Twin Movie", "tmdbId": 9, "path": "/movies/Twin", "added": ago(2),
-                           "hasFile": twin_has_file, "sizeOnDisk": 10 * GB, "tags": []}]})
+                           "hasFile": twin_has_file, "sizeOnDisk": twin_gb * GB, "tags": []}]})
     radarr_4k = FakeArr({
         "/api/v3/tag": [{"id": 3, "label": "7-somebody"}],
         "/api/v3/movie": [{"id": 31, "title": "Twin Movie", "tmdbId": 9, "path": "/movies-4k/Twin", "added": ago(2),
@@ -111,6 +111,13 @@ class CollectTest(unittest.TestCase):
     def test_4k_whose_twin_has_no_file_yet(self):
         rows = media_usage.collect(*fixture(twin_has_file=False), now=NOW)
         self.assertEqual(next(r for r in rows if r["app"] == "radarr_4k")["action"], "drop 4K (1080p twin to download)")
+
+    def test_1080p_entry_holding_the_4k_file_is_listed_once(self):
+        # the 1080p entry imported the 4K file (a hardlink, same size): one row, not two
+        rows = media_usage.collect(*fixture(twin_gb=80), now=NOW)
+        self.assertEqual([r["app"] for r in rows if r["kind"] == "movie"], ["radarr_4k"])
+        k = next(r for r in rows if r["app"] == "radarr_4k")
+        self.assertEqual(k["action"], "same file as R21: replace 1080p, then drop 4K")
 
     def test_age_is_the_earliest_known_date(self):
         rows = media_usage.collect(*fixture(added_days=40), now=NOW)
