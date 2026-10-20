@@ -76,6 +76,9 @@ spec:
           # One pattern per line ("\n" inside the JSON string; the file is sent with spaces stripped).
           # Upload is capped at 1 MB/s (alt speed) from 06:00 to 23:00 UTC so seeding
           # doesn't saturate the home uplink; full 6 MB/s overnight.
+          # Default share limit (public trackers): ratio 2 or 14 days of seeding, then the torrent
+          # stops and the *arrs remove it, so finished torrents cycle out of the 25 upload slots.
+          # Private trackers set their own limits per torrent (Prowlarr seed settings).
           qbt-up.sh: |
             #!/bin/sh
             cat > /tmp/qbt-prefs.json <<EOF
@@ -95,7 +98,7 @@ spec:
               "excluded_file_names_enabled": true,
               "excluded_file_names": "*.iso\n*.exe\n*.scr\n*.lnk\n*.bat\n*.cmd\n*.msi\n*.zipx",
               "max_ratio_enabled": true, "max_ratio": 2,
-              "max_seeding_time_enabled": true, "max_seeding_time": 525600,
+              "max_seeding_time_enabled": true, "max_seeding_time": 20160,
               "max_ratio_act": 0
             }
             EOF
