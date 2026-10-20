@@ -40,7 +40,7 @@ Status page: `https://status.<domain>`. No login on the LAN, any user's password
 
 ## Secrets
 
-`core/gatus/app/alerting.secret.yaml` (SOPS): `NTFY_TOPIC`, `NTFY_TOKEN`, `GATUS_PUSH_TOKEN`, `HC_CLUSTER_PING_URL`, `QBIT_USERNAME`, `QBIT_PASSWORD`, `RADARR_API_KEY`, `RADARR_4K_API_KEY`, `SONARR_API_KEY`. Edit with `sops core/gatus/app/alerting.secret.yaml`; never print the values.
+`core/gatus/app/alerting.secret.yaml` (SOPS): `NTFY_TOPIC`, `NTFY_TOKEN`, `GATUS_PUSH_TOKEN`, `HC_CLUSTER_PING_URL`, `QBIT_USERNAME`, `QBIT_PASSWORD`, `RADARR_API_KEY`, `RADARR_4K_API_KEY`, `SONARR_API_KEY`. Edit with `mise exec -- sops clusters/main/kubernetes/core/gatus/app/alerting.secret.yaml`; never print the values.
 
 ## TrueNAS setup (UI, done by the admin)
 
