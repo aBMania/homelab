@@ -34,8 +34,8 @@ class FakeHttp:
         return 200, body.encode()
 
 
-def torrent(state):
-    return {"name": TITLE, "state": state, "save_path": f"/downloads/{TITLE}"}
+def torrent(state, seeds=0):
+    return {"name": TITLE, "state": state, "save_path": f"/downloads/{TITLE}", "num_seeds": seeds}
 
 
 class TestChecks(unittest.TestCase):
@@ -53,16 +53,21 @@ class TestChecks(unittest.TestCase):
         self.assertIn("disconnected", msg)
 
     def test_stalled_when_active_and_zero_speed(self):
-        ts = [torrent("downloading"), torrent("stalledDL")]
+        ts = [torrent("downloading", seeds=3), torrent("stalledDL", seeds=1), torrent("stalledDL")]
         self.assertEqual(probe.stalled(ts, {"dl_info_speed": 0}),
-                         (False, "2 active downloads, 0 B/s"))
+                         (False, "2 downloads with seeds, 0 B/s"))
+
+    def test_seedless_torrent_not_stalled(self):
+        # spec: one seedless torrent is not alerted (Decluttarr handles it)
+        ok, _ = probe.stalled([torrent("stalledDL"), torrent("metaDL")], {"dl_info_speed": 0})
+        self.assertTrue(ok)
 
     def test_not_stalled_when_moving(self):
-        ok, _ = probe.stalled([torrent("downloading")], {"dl_info_speed": 1200})
+        ok, _ = probe.stalled([torrent("downloading", seeds=2)], {"dl_info_speed": 1200})
         self.assertTrue(ok)
 
     def test_not_stalled_when_nothing_active(self):
-        ts = [torrent("pausedDL"), torrent("queuedDL"), torrent("uploading")]
+        ts = [torrent("pausedDL", seeds=5), torrent("queuedDL", seeds=5), torrent("uploading", seeds=5)]
         ok, _ = probe.stalled(ts, {"dl_info_speed": 0})
         self.assertTrue(ok)
 
@@ -103,7 +108,7 @@ class TestMain(unittest.TestCase):
             ("POST", "qbittorrent", "/api/v2/auth/login"): "Ok.",
             ("GET", "qbittorrent", "/api/v2/transfer/info"): {"connection_status": "connected",
                                                                "dl_info_speed": 0},
-            ("GET", "qbittorrent", "/api/v2/torrents/info"): [torrent("downloading")],
+            ("GET", "qbittorrent", "/api/v2/torrents/info"): [torrent("downloading", seeds=2)],
             ("GET", "radarr", "/api/v3/health"): [],
             ("GET", "radarr-4k", "/api/v3/health"): [],
             ("GET", "sonarr", "/api/v3/health"): [],
@@ -144,6 +149,19 @@ class TestMain(unittest.TestCase):
         self.assertEqual(by_key["downloads_radarr-4k-download-client"], "false")
         self.assertEqual(by_key["downloads_radarr-download-client"], "true")
 
+    def test_push_failure_exits_nonzero(self):
+        # Gatus refuses the token: the Job must fail visibly (and the heartbeat goes red)
+        class Refusing(FakeHttp):
+            def request(self, method, url, data=None, headers=None, timeout=10):
+                if "/external" in url:
+                    raise OSError("HTTP Error 401")
+                return super().request(method, url, data, headers, timeout)
+        orig, probe.time.sleep = probe.time.sleep, lambda s: None
+        try:
+            self.assertEqual(probe.main("vpn", http=Refusing(self.healthy_routes())), 1)
+        finally:
+            probe.time.sleep = orig
+
     def test_messages_have_no_titles(self):
         import contextlib
         import io
@@ -154,7 +172,7 @@ class TestMain(unittest.TestCase):
             probe.main("vpn", http=http)
         everything = out.getvalue() + repr(http.pushes)
         self.assertNotIn(TITLE, everything)
-        msg = probe.stalled([torrent("downloading")] * 3, {"dl_info_speed": 0})[1]
+        msg = probe.stalled([torrent("downloading", seeds=1)] * 3, {"dl_info_speed": 0})[1]
         self.assertNotIn(TITLE, msg)
 
 

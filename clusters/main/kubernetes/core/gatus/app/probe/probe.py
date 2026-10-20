@@ -46,11 +46,17 @@ def vpn_connected(transfer_info):
 
 
 def stalled(torrents, transfer_info):
-    active = sum(1 for t in torrents if t.get("state") in ACTIVE_STATES)
+    """Broken = downloads that have connected seeds, yet nothing comes in.
+
+    Seedless torrents are ignored: one dead torrent isn't "downloading broken" (Decluttarr
+    removes it), and the VPN check covers a tunnel that can't reach anyone.
+    """
+    seeded = sum(1 for t in torrents
+                 if t.get("state") in ACTIVE_STATES and t.get("num_seeds", 0) > 0)
     speed = transfer_info.get("dl_info_speed", 0)
-    if active and speed == 0:
-        return False, f"{active} active downloads, 0 B/s"
-    return True, f"{active} active downloads, {speed} B/s"
+    if seeded and speed == 0:
+        return False, f"{seeded} downloads with seeds, 0 B/s"
+    return True, f"{seeded} downloads with seeds, {speed} B/s"
 
 
 def download_client_ok(health, app):
@@ -67,18 +73,20 @@ def backends_ok(results):
 
 
 def push(key, ok, error, http):
+    """Returns False when Gatus never took the result (the Job then exits 1)."""
     query = urllib.parse.urlencode({"success": str(ok).lower(), "error": "" if ok else error})
     url = f"{GATUS}/api/v1/endpoints/{key}/external?{query}"
     headers = {"Authorization": f"Bearer {os.environ['GATUS_PUSH_TOKEN']}"}
     for attempt in range(3):
         try:
             http.request("POST", url, headers=headers)
-            return
+            return True
         except Exception as e:  # Gatus restarting: retry, then give up quietly
             if attempt == 2:
                 print(f"{key} push failed: {type(e).__name__}", file=sys.stderr)
             else:
                 time.sleep(2)
+    return False
 
 
 def get_json(http, url, headers=None):
@@ -113,7 +121,7 @@ def run(key, check, http):
     except Exception as e:
         ok, msg = False, f"{type(e).__name__}: {e}"[:200]
     print(f"{key} {'ok' if ok else 'fail'} {msg}")
-    push(key, ok, msg, http)
+    return push(key, ok, msg, http)
 
 
 def main(mode, http=None):
@@ -132,24 +140,24 @@ def main(mode, http=None):
         return qbit
 
     if mode == "vpn":
-        run("downloads_vpn-connected", lambda: vpn_connected(qbit_state()["transfer"]), http)
-        return 0
+        pushed = run("downloads_vpn-connected", lambda: vpn_connected(qbit_state()["transfer"]), http)
+        return 0 if pushed else 1
 
     def stalled_check():
         state = qbit_state()
         torrents = get_json(http, f"{QBIT}/api/v2/torrents/info?filter=all")
         return stalled(torrents, state["transfer"])
 
-    run("downloads_stalled", stalled_check, http)
+    pushed = [run("downloads_stalled", stalled_check, http)]
     for app in ARRS:
-        run(f"downloads_{app}-download-client",
-            lambda app=app: download_client_ok(arr_get(http, app, "/api/v3/health"), app), http)
-    run("requests_backends", lambda: backends_ok({
+        pushed.append(run(f"downloads_{app}-download-client",
+            lambda app=app: download_client_ok(arr_get(http, app, "/api/v3/health"), app), http))
+    pushed.append(run("requests_backends", lambda: backends_ok({
         "jellyseerr": reachable(lambda: get_json(http, JELLYSEERR_STATUS)),
         "radarr": reachable(lambda: arr_get(http, "radarr", "/api/v3/system/status")),
         "sonarr": reachable(lambda: arr_get(http, "sonarr", "/api/v3/system/status")),
-    }), http)
-    return 0
+    }), http))
+    return 0 if all(pushed) else 1
 
 
 if __name__ == "__main__":
