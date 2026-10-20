@@ -178,6 +178,10 @@ Public DNS for `DOMAIN_0` lives in Cloudflare and is managed by Terraform in `te
 - Backups: TrueNAS snapshots of `tank2/talos` and `tank2/talos-data` hourly (48 h) + daily (14 d), replicated to `tank/talos` and `tank/talos-data`. `local-data` keeps volumes after PVC deletion: clean the folder under `/var/mnt/data/openebs/` by hand.
 - `mise run talos:genconfig` fails since k8s 1.37 (talhelper contract v1.13): node changes go through `talosctl patch machineconfig` until the contract migration; keep `clusters/main/talos/` in sync by hand.
 
+**Alerts (push notifications)**
+- Gatus (`core/gatus/`, namespace `monitoring`) + healthchecks.io + TrueNAS send ntfy messages to the admin's phone after 1 h of failure, or when a check is flaky. Runbook: `docs/push-notifications.md`.
+- Before a `node:down` that may last more than 1 h, pause the healthchecks.io `cluster` and `emby-lan` checks, or the phone gets "Homelab not checking in".
+
 **TrueCharts charts**
 - Newer `common` versions set `hostUsers: false` on k8s ≥ 1.33. Talos has user namespaces disabled, so pods fail with ENOSPC on `unshare`. Set `podOptions.hostUsers: true`.
 - Some newer charts run as root, but NFS squashes root, so file ownership and plugin updates break. Set `securityContext.container.runAsUser/runAsGroup: 568` (the TrueNAS `apps` user).
