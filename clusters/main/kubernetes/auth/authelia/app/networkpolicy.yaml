@@ -29,6 +29,28 @@ spec:
       ports:
         - port: 9091
 ---
+# Gatus (push notifications) -> Authelia's health endpoint
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: authelia-from-gatus
+  namespace: authelia
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: authelia
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gatus
+      ports:
+        - port: 9091
+---
 # Authelia -> its session store
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
