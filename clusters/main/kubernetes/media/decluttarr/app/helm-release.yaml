@@ -42,7 +42,7 @@ spec:
               repository: ghcr.io/manimatter/decluttarr
               tag: v2.2.0@sha256:fd3dc206c17df32190cda1bed2ef3ee1cb9726bd108aa7e97e83e47cb3e72d78
             envFrom:
-              # SONARR_API_KEY, RADARR_API_KEY
+              # SONARR_API_KEY, RADARR_API_KEY, QBITTORRENT_API_KEY
               - secretRef:
                   name: decluttarr-secret
               # RADARR_4K_API_KEY
@@ -71,6 +71,10 @@ spec:
                   - "*already imported at*"
                   - "Episode file on disk contains more episodes than this file contains"
                   - "Caution: Found*"
+              # Private trackers count a deleted download as a hit-and-run and the ratio
+              # suffers: their downloads leave the *arr queue (new search) but stay in
+              # qBittorrent to keep seeding (2026-10-20: 2 finished private downloads deleted)
+              PRIVATE_TRACKER_HANDLING: remove_from_queue
               # $(VAR) is expanded by Kubernetes from the envFrom secret above
               SONARR: |
                 - base_url: "http://sonarr.media.svc.cluster.local:8989"
@@ -80,6 +84,15 @@ spec:
                   api_key: "$(RADARR_API_KEY)"
                 - base_url: "http://radarr-4k.media.svc.cluster.local:7878"
                   api_key: "$(RADARR_4K_API_KEY)"
+              # Needed to tell private torrents apart. One entry per download-client name used in
+              # the *arrs (Sonarr calls it "qtb", the Radarrs "qbt"); same qBittorrent behind both
+              QBITTORRENT: |
+                - base_url: "http://qbittorrent.media.svc.cluster.local:10095"
+                  name: "qtb"
+                  api_key: "$(QBITTORRENT_API_KEY)"
+                - base_url: "http://qbittorrent.media.svc.cluster.local:10095"
+                  name: "qbt"
+                  api_key: "$(QBITTORRENT_API_KEY)"
             resources:
               requests:
                 cpu: 10m
