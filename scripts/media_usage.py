@@ -141,6 +141,12 @@ def collect(arrs, emby, min_series_gb=100, min_movie_gb=50, now=None):
                 "monitored": s.get("monitored"), "emby": _match_series(s, emby_series),
                 "action": "delete series"})
     radarr = {m.get("tmdbId"): m for m in arrs["radarr"].get("/api/v3/movie")} if arrs.get("radarr") else {}
+    # 1080p entries that imported the 4K file (a hardlink, same size): listed once, on the 4K row
+    shared = {m.get("tmdbId") for m in (arrs["radarr_4k"].get("/api/v3/movie") if arrs.get("radarr_4k") and radarr else [])
+              if m.get("hasFile") and radarr.get(m.get("tmdbId"), {}).get("sizeOnDisk") == m.get("sizeOnDisk")}
+    # 1080p entries that imported the 4K file (a hardlink, same size): listed once, on the 4K row
+    shared = {m.get("tmdbId") for m in (arrs["radarr_4k"].get("/api/v3/movie") if arrs.get("radarr_4k") and radarr else [])
+              if m.get("hasFile") and radarr.get(m.get("tmdbId"), {}).get("sizeOnDisk") == m.get("sizeOnDisk")}
     emby_movies = None
     for app in ("radarr", "radarr_4k"):
         arr = arrs.get(app)
@@ -149,7 +155,7 @@ def collect(arrs, emby, min_series_gb=100, min_movie_gb=50, now=None):
         tags = {t["id"]: t["label"] for t in arr.get("/api/v3/tag")}
         movies = radarr.values() if app == "radarr" else arr.get("/api/v3/movie")
         for m in movies:
-            if m.get("sizeOnDisk", 0) <= min_movie_gb * GB:
+            if m.get("sizeOnDisk", 0) <= min_movie_gb * GB or (app == "radarr" and m.get("tmdbId") in shared):
                 continue
             if emby_movies is None:
                 emby_movies = _emby_items(emby, "Movie")
@@ -159,7 +165,9 @@ def collect(arrs, emby, min_series_gb=100, min_movie_gb=50, now=None):
             twin = radarr.get(m.get("tmdbId")) if app == "radarr_4k" else None
             if twin:
                 row["emby"] += [i for i in _match_movie(twin, emby_movies) if i not in row["emby"]]
-                row["action"] = "drop 4K (1080p kept)" if twin.get("hasFile") else "drop 4K (1080p twin to download)"
+                row["action"] = ("drop 4K (1080p kept)" if twin.get("hasFile") else "drop 4K (1080p twin to download)")
+                if m.get("tmdbId") in shared:
+                    row["action"] = f"same file as R{twin['id']}: replace 1080p, then drop 4K"
             rows.append(row)
     for row in rows:
         # age: the earliest of the app's date and Emby's: radarr-4k movies and their re-added 1080p
