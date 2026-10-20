@@ -135,6 +135,10 @@ spec:
                 client:
                   # Authelia's redirect to the login page counts as up
                   ignore-redirect: true
+                # Like a browser: without an Accept header Authelia answers 401 instead of its
+                # redirect to the login page
+                headers:
+                  Accept: text/html
                 conditions:
                   # A failed connection has status 0, which is < 400
                 - "[CONNECTED] == true"
