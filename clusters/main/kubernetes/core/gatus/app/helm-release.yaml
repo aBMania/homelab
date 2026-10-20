@@ -168,11 +168,16 @@ spec:
                   - type: ntfy
                     description: "Emby unreachable at its public address for 1 h (DNS, router port forward, Traefik or Emby)"
 
-            # Results pushed by the probe CronJobs (POST /api/v1/endpoints/<group>_<name>/external)
+            # Results pushed by the probe CronJobs (POST /api/v1/endpoints/<group>_<name>/external).
+            # heartbeat: a missed push records a failure (about one per 1-2 intervals), so a broken
+            # probe alerts after ~1-2 h instead of showing its last result forever.
             external-endpoints:
               - name: vpn-connected
                 group: downloads
                 token: $${GATUS_PUSH_TOKEN}
+                # No push for 2 min (probe broken) = a failed result, so a dead probe can't stay green
+                heartbeat:
+                  interval: 2m
                 alerts:
                   # pushed every minute
                   - type: ntfy
@@ -182,6 +187,8 @@ spec:
               - name: stalled
                 group: downloads
                 token: $${GATUS_PUSH_TOKEN}
+                heartbeat:
+                  interval: 6m
                 alerts:
                   - type: ntfy
                     description: "Downloads: nothing has moved for 1 h"
@@ -189,6 +196,8 @@ spec:
               - name: radarr-download-client
                 group: downloads
                 token: $${GATUS_PUSH_TOKEN}
+                heartbeat:
+                  interval: 6m
                 alerts:
                   - type: ntfy
                     description: "Radarr can't reach qBittorrent for 1 h"
@@ -196,6 +205,8 @@ spec:
               - name: radarr-4k-download-client
                 group: downloads
                 token: $${GATUS_PUSH_TOKEN}
+                heartbeat:
+                  interval: 6m
                 alerts:
                   - type: ntfy
                     description: "Radarr 4K can't reach qBittorrent for 1 h"
@@ -203,6 +214,8 @@ spec:
               - name: sonarr-download-client
                 group: downloads
                 token: $${GATUS_PUSH_TOKEN}
+                heartbeat:
+                  interval: 6m
                 alerts:
                   - type: ntfy
                     description: "Sonarr can't reach qBittorrent for 1 h"
@@ -210,9 +223,11 @@ spec:
               - name: backends
                 group: requests
                 token: $${GATUS_PUSH_TOKEN}
+                heartbeat:
+                  interval: 6m
                 alerts:
                   - type: ntfy
-                    description: "Requests: can't reach Emby, Radarr or Sonarr for 1 h"
+                    description: "Requests: can't reach Jellyseerr, Radarr or Sonarr for 1 h"
     persistence:
       config:
         type: configMap
