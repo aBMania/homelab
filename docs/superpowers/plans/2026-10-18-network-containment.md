@@ -119,6 +119,8 @@ One PR per namespace, in this order: `media`, `panio`, `suivi-saeg`, `jupyter`, 
   - `fromEndpoints: [{}]` (same namespace)
   - `blocky` only: `fromEntities: [world, host]` with `toPorts: 53/UDP, 53/TCP`
   - `whosaid`, `cloudflareddns`: only the same-namespace rule (no Traefik)
+  - from `monitoring` (push notifications, Gatus + probe): `media` qbittorrent:10095, radarr:7878, radarr-4k:7878, sonarr:8989, jellyseerr:10241; `authelia` :9091; nothing to Emby :8096 (the LAN check runs on TrueNAS)
+  - `monitoring` itself: from Traefik to gatus:8080 (status page) and same namespace (probe and heartbeat → Gatus)
 - [ ] **Step 2:** `mise run net:inbound <namespace>` covering a few days of normal use (the user exercises each app). Each source: a rule in Step 1's policy with a comment, or a written reason to stay blocked.
 - [ ] **Step 3:** kubeconform + server dry-run; commit; PR; merge.
 - [ ] **Step 4:** right after merge: `mise run net:drops <namespace>` (expected: nothing legitimate); acceptance: probe pod in a temporary namespace → a pod of `<namespace>` on its service port: blocked; every app URL of the namespace loads; `media`: the user checks the projector discovers and plays Emby; `blocky`: `dig @192.168.1.111` from the laptop answers. Anything legitimate dropped: fix in git or revert.

@@ -150,6 +150,16 @@ spec:
               - "subtitles.${DOMAIN_0}"
             policy: one_factor
             subject: group:user
+          # Status page (Gatus, read-only): open at home, any user's password from outside.
+          # Before the admin rules, which would ask for a login at home and refuse other users.
+          - domain:
+              - "status.${DOMAIN_0}"
+            policy: bypass
+            networks:
+              - lan
+          - domain:
+              - "status.${DOMAIN_0}"
+            policy: one_factor
           # Admins at home: password only
           - domain:
               - ${DOMAIN_0}

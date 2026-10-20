@@ -1,0 +1,11 @@
+# Push notifications: Gatus checks + ntfy alerts (docs/push-notifications.md).
+# Deliberately NOT in node:down's NODE_DOWN_KEEP_NS: it scales down with the apps, so planned
+# maintenance records no failures and sends no alerts.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
