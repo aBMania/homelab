@@ -1,0 +1,225 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gatus
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    defaultPodOptions:
+      # Doesn't use the Kubernetes API
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+    controllers:
+      gatus:
+        # One writer on the SQLite file
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/twin/gatus
+              tag: v5.37.0@sha256:094eb186e55235db367e90e9d56140e5897b7044c41de23cde4cc18e6da1242e
+            envFrom:
+              # NTFY_TOPIC, NTFY_TOKEN, GATUS_PUSH_TOKEN (+ the probe's keys)
+              - secretRef:
+                  name: alerting
+            env:
+              TZ: Europe/Paris
+              GATUS_CONFIG_PATH: /config/gatus.yaml
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 8080
+              readiness: *probe
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+    service:
+      app:
+        controller: gatus
+        ports:
+          http:
+            port: 8080
+    ingress:
+      app:
+        annotations:
+          cert-manager.io/cluster-issuer: domain-0-le-prod
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          # Without it Traefik builds the router without TLS and HTTPS requests get a 404
+          traefik.ingress.kubernetes.io/router.tls: "true"
+          # Status page: Authelia lets the LAN through and asks any user's password from outside
+          traefik.ingress.kubernetes.io/router.middlewares: traefik-auth@kubernetescrd
+        hosts:
+          - host: &host status.${DOMAIN_0}
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+        tls:
+          - hosts:
+              - *host
+            secretName: gatus-tls
+    # Rendered by the chart, which adds its checksum to the pod: a config change rolls Gatus
+    configMaps:
+      config:
+        data:
+          gatus.yaml: |
+            # Alert = 1 h of continuous failure: failure-threshold 12 for 5-min checks, 60 for 1-min checks.
+            # $${VAR} is Gatus's own env expansion (escaped from Flux substitution); the domain comes from Flux.
+            storage:
+              type: sqlite
+              path: /data/data.db
+              # 500 results per check = more than 6 h of 1-min checks (the flaky detector's window)
+              maximum-number-of-results: 500
+              maximum-number-of-events: 100
+
+            ui:
+              title: Status
+              header: Status
+
+            alerting:
+              ntfy:
+                url: https://ntfy.sh
+                topic: $${NTFY_TOPIC}
+                token: $${NTFY_TOKEN}
+                # Never 5 (nothing may ring); the phone's Do Not Disturb silences 3
+                priority: 3
+                default-alert:
+                  failure-threshold: 12
+                  success-threshold: 1
+                  send-on-resolved: true
+
+            endpoints:
+              - name: public
+                group: requests
+                url: https://requests.${DOMAIN_0}/
+                interval: 5m
+                client:
+                  # Authelia's redirect to the login page counts as up
+                  ignore-redirect: true
+                conditions:
+                  # A failed connection has status 0, which is < 400
+                - "[CONNECTED] == true"
+                - "[STATUS] < 400"
+                alerts:
+                  - type: ntfy
+                    description: "Requests: unreachable through Traefik/Authelia for 1 h"
+
+              - name: authelia
+                group: login
+                url: http://authelia.authelia.svc:9091/api/health
+                interval: 5m
+                conditions:
+                  - "[STATUS] == 200"
+                alerts:
+                  - type: ntfy
+                    description: "Login portal down for 1 h"
+
+              - name: public
+                group: emby
+                url: https://emby.${DOMAIN_0}/emby/System/Info/Public
+                interval: 5m
+                client:
+                  # Public DNS, not Blocky's LAN answer: the request goes out to the public IP and back in
+                  # through the router's port forward (DDNS, port forward, Traefik, certificate, Emby)
+                  dns-resolver: "tcp://1.1.1.1:53"
+                conditions:
+                  - "[STATUS] == 200"
+                  - "[CERTIFICATE_EXPIRATION] > 72h"
+                alerts:
+                  - type: ntfy
+                    description: "Emby unreachable at its public address for 1 h (DNS, router port forward, Traefik or Emby)"
+
+            # Results pushed by the probe CronJobs (POST /api/v1/endpoints/<group>_<name>/external)
+            external-endpoints:
+              - name: vpn-connected
+                group: downloads
+                token: $${GATUS_PUSH_TOKEN}
+                alerts:
+                  # pushed every minute
+                  - type: ntfy
+                    failure-threshold: 60
+                    description: "Downloads: VPN down for 1 h"
+
+              - name: stalled
+                group: downloads
+                token: $${GATUS_PUSH_TOKEN}
+                alerts:
+                  - type: ntfy
+                    description: "Downloads: nothing has moved for 1 h"
+
+              - name: radarr-download-client
+                group: downloads
+                token: $${GATUS_PUSH_TOKEN}
+                alerts:
+                  - type: ntfy
+                    description: "Radarr can't reach qBittorrent for 1 h"
+
+              - name: radarr-4k-download-client
+                group: downloads
+                token: $${GATUS_PUSH_TOKEN}
+                alerts:
+                  - type: ntfy
+                    description: "Radarr 4K can't reach qBittorrent for 1 h"
+
+              - name: sonarr-download-client
+                group: downloads
+                token: $${GATUS_PUSH_TOKEN}
+                alerts:
+                  - type: ntfy
+                    description: "Sonarr can't reach qBittorrent for 1 h"
+
+              - name: backends
+                group: requests
+                token: $${GATUS_PUSH_TOKEN}
+                alerts:
+                  - type: ntfy
+                    description: "Requests: can't reach Emby, Radarr or Sonarr for 1 h"
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /config
+      data:
+        existingClaim: gatus-data
+        globalMounts:
+          - path: /data
