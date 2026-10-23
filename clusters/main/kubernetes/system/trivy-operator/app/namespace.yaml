@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trivy-system
+  labels:
+    # filesystem scans run the scanned images as root (to read every file)
+    pod-security.kubernetes.io/enforce: privileged

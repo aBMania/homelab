@@ -1,0 +1,63 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+# CVE scanning of every running image. Results are VulnerabilityReport objects
+# (kubectl get vulns -A); core/gatus trivy-notify sends new CRITICAL ones to ntfy.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: trivy-operator
+  namespace: trivy-system
+spec:
+  interval: 15m
+  chart:
+    spec:
+      chart: trivy-operator
+      version: 0.32.1
+      sourceRef:
+        kind: HelmRepository
+        name: aquasecurity
+        namespace: flux-system
+      interval: 15m
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    operator:
+      # single node: scan one workload at a time
+      scanJobsConcurrentLimit: 1
+      scanJobTimeout: 10m
+      # reports expire after 24 h, so every image is rescanned daily against a fresh DB
+      scannerReportTTL: 24h
+      vulnerabilityScannerScanOnlyCurrentRevisions: true
+      # vulnerabilities only: the other scanners are noisy and cost CPU
+      sbomGenerationEnabled: false
+      configAuditScannerEnabled: false
+      rbacAssessmentScannerEnabled: false
+      infraAssessmentScannerEnabled: false
+      clusterComplianceEnabled: false
+      exposedSecretScannerEnabled: false
+      # one in-cluster trivy server holds the DB (ClientServer), instead of every scan job downloading it
+      builtInTrivyServer: true
+    trivyOperator:
+      # filesystem scans read the image already on the node instead of pulling it again
+      scanJobPodTemplateContainerSecurityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsUser: 0
+    trivy:
+      command: filesystem
+      severity: HIGH,CRITICAL
+      # only what an update can fix
+      ignoreUnfixed: true
+      # server DB cache in an emptyDir (re-downloaded on restart) rather than a local-data PVC
+      storageClassEnabled: false

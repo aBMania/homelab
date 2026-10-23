@@ -1,0 +1,117 @@
+---
+# New CRITICAL CVEs found by Trivy Operator (system/trivy-operator) -> ntfy, once a day.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: trivy-notify
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: trivy-notify
+rules:
+  - apiGroups: ["aquasecurity.github.io"]
+    resources: ["vulnerabilityreports"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: trivy-notify
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: trivy-notify
+subjects:
+  - kind: ServiceAccount
+    name: trivy-notify
+    namespace: monitoring
+---
+# CVEs already sent, on local-data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: trivy-notify-state
+  namespace: monitoring
+  annotations:
+    # keep the data if the PVC is ever removed from git (prune: true)
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-data
+  resources:
+    requests:
+      storage: 64Mi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trivy-notify
+  namespace: monitoring
+spec:
+  # after the daily rescans (reports expire after 24 h)
+  schedule: "0 7 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: trivy-notify
+          securityContext:
+            runAsUser: 65534
+            runAsGroup: 65534
+            # makes the state PVC writable
+            fsGroup: 65534
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: trivy-notify
+              image: python:3.13.17-alpine3.24@sha256:fa0bb0d0cd7c7d6cef30a69094d32ac2b71c7304c87c6107fec100e1ee4eda02
+              command: ["python", "/trivy/trivy_notify.py"]
+              env:
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+                - name: TRIVY_NOTIFY
+                  value: "true"
+                - name: NTFY_TOPIC
+                  valueFrom:
+                    secretKeyRef:
+                      name: alerting
+                      key: NTFY_TOPIC
+                - name: NTFY_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: alerting
+                      key: NTFY_TOKEN
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: trivy
+                  mountPath: /trivy
+                - name: state
+                  mountPath: /state
+          volumes:
+            - name: trivy
+              configMap:
+                name: trivy-notify
+            - name: state
+              persistentVolumeClaim:
+                claimName: trivy-notify-state
