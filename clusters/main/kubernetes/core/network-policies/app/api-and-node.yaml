@@ -4,7 +4,8 @@
 # Every namespace except the ones that need the API (listed below), so a new app namespace is
 # covered without touching this file. A new system namespace must be added here, or its
 # controllers can't reach the API (they fail loudly; `mise run net:drops <namespace>` shows it).
-# Also exempt: CNPG Postgres pods in app namespaces (their instance manager talks to the API).
+# Also exempt: CNPG Postgres pods in app namespaces (their instance manager talks to the API),
+# and the trivy-notify CronJob pods (label app.kubernetes.io/name: trivy-notify).
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
@@ -28,12 +29,19 @@ spec:
           - snapshot-controller
           - system-upgrade
           - volsync
+          # trivy-operator reads workloads and writes VulnerabilityReports
+          - trivy-system
           # reads Ingresses
           - traefik
           # k8s_gateway reads Services and Ingresses
           - blocky
       - key: k8s:cnpg.io/cluster
         operator: DoesNotExist
+      # trivy-notify (CronJob in monitoring) lists VulnerabilityReports (ClusterRole: list only)
+      - key: k8s:app.kubernetes.io/name
+        operator: NotIn
+        values:
+          - trivy-notify
   enableDefaultDeny:
     egress: false
     ingress: false
