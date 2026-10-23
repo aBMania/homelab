@@ -143,5 +143,14 @@ data:
               - 228b8ee9aa0a609463efca874524a6b8  # v2
               - 0e5833d3af2cc5fa96a0c29cd4477feb  # v3
               - 4fc15eeb8f2f9a749f918217d4234ad8  # v4
+              # unwanted (guide default -10000), same as the HD profile's Unwanted Formats French group
+              - 85c61753df5da1fb2aab6f2a47426b09  # BR-DISK
+              - 9c11cd3f07101cdba90a2d81cf0e56b4  # LQ
+              - e2315f990da2e2cbfc9fa5b7a6fcfe48  # LQ (Release Title)
+              - 3ba797e5dc13af4b8d9bb25e83d90de2  # FR LQ
+              - ea0bb4b6ba388992fad1092703b5ff7b  # FastSUB
+              - 23297a736ca77c0fc8e70f8edd7ee56c  # Upscaled
+              - fbcb31d8dabd2a319072b84fc0b7249c  # Extras
+              - 15a05bc7c1a36e2b57fd628f8977e2fc  # AV1
             assign_scores_to:
               - name: "[French Anime MULTi.VO] 1080p"
