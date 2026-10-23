@@ -8,8 +8,8 @@ spec:
     chart:
         spec:
             # renovate: registryUrl=oci://oci.trueforge.org/truecharts
-            chart: jellyseerr
-            version: 16.0.3
+            chart: seerr
+            version: 17.0.6
             sourceRef:
                 kind: HelmRepository
                 name: truecharts
@@ -50,3 +50,21 @@ spec:
           enabled: true
           type: pvc
           existingClaim: jellyseerr-data
+      # Jellyseerr became Seerr (3.x, migrates the 2.x SQLite DB on first start). The seerr
+      # chart defaults to Postgres (CNPG): keep the existing SQLite DB on the PVC instead.
+      cnpg:
+        main:
+          enabled: false
+      workload:
+        main:
+          podSpec:
+            containers:
+              main:
+                env:
+                  DB_TYPE: sqlite
+                  DB_HOST: null
+                  DB_PORT: null
+                  DB_USER: null
+                  DB_PASS: null
+                  DB_NAME: null
+                  DB_LOG_QUERIES: null
