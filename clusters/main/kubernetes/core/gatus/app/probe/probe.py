@@ -43,12 +43,17 @@ def stalled(torrents, transfer_info):
 
     Seedless torrents are ignored: one dead torrent isn't "downloading broken" (Decluttarr
     removes it), and the VPN check covers a tunnel that can't reach anyone.
+    Uploads moving prove the client and tunnel work: downloads stuck then are the torrents'
+    own problem (e.g. the only one left has seeds that never send).
     """
     seeded = sum(1 for t in torrents
                  if t.get("state") in ACTIVE_STATES and t.get("num_seeds", 0) > 0)
     speed = transfer_info.get("dl_info_speed", 0)
-    if seeded and speed == 0:
+    up = transfer_info.get("up_info_speed", 0)
+    if seeded and speed == 0 and up == 0:
         return False, f"{seeded} downloads with seeds, 0 B/s"
+    if seeded and speed == 0:
+        return True, f"{seeded} downloads with seeds, 0 B/s, uploads {up} B/s"
     return True, f"{seeded} downloads with seeds, {speed} B/s"
 
 

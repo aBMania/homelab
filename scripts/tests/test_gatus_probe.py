@@ -70,6 +70,14 @@ class TestChecks(unittest.TestCase):
         ok, _ = probe.stalled([torrent("downloading", seeds=2)], {"dl_info_speed": 1200})
         self.assertTrue(ok)
 
+    def test_stuck_downloads_not_stalled_while_uploads_move(self):
+        # The only download left is stuck with seeds, but seeding works: the client and the
+        # tunnel are fine, that one torrent is the problem (Decluttarr's job)
+        ts = [torrent("downloading", seeds=2), torrent("uploading", seeds=5)]
+        ok, msg = probe.stalled(ts, {"dl_info_speed": 0, "up_info_speed": 4000})
+        self.assertTrue(ok)
+        self.assertEqual(msg, "1 downloads with seeds, 0 B/s, uploads 4000 B/s")
+
     def test_not_stalled_when_nothing_active(self):
         ts = [torrent("pausedDL", seeds=5), torrent("queuedDL", seeds=5), torrent("uploading", seeds=5)]
         ok, _ = probe.stalled(ts, {"dl_info_speed": 0})
