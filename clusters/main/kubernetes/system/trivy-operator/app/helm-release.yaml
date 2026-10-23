@@ -60,5 +60,11 @@ spec:
       severity: HIGH,CRITICAL
       # only what an update can fix
       ignoreUnfixed: true
+      # vulnerability DBs from Aqua's own registry: the default mirror.gcr.io copy served a manifest
+      # whose layer it didn't have yet (BLOB_UNKNOWN, 2026-10-23), so the server crash-looped
+      dbRegistry: ghcr.io
+      dbRepository: aquasecurity/trivy-db
+      javaDbRegistry: ghcr.io
+      javaDbRepository: aquasecurity/trivy-java-db
       # server DB cache in an emptyDir (re-downloaded on restart) rather than a local-data PVC
       storageClassEnabled: false
