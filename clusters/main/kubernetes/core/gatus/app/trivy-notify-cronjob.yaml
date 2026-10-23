@@ -61,6 +61,10 @@ spec:
       activeDeadlineSeconds: 300
       backoffLimit: 0
       template:
+        metadata:
+          labels:
+            # exempts the pod from deny-apps-to-api-and-node (core/network-policies)
+            app.kubernetes.io/name: trivy-notify
         spec:
           restartPolicy: Never
           serviceAccountName: trivy-notify
