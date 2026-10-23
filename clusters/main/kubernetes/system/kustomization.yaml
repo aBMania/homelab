@@ -14,6 +14,5 @@ resources:
   # spegel-org/spegel#1120). Re-enable if nodes are added.
   # - spegel/ks.yaml
   - system-upgrade-controller/ks.yaml
-  - traefik-crds/ks.yaml
   - trivy-operator/ks.yaml
   - volsync/ks.yaml
