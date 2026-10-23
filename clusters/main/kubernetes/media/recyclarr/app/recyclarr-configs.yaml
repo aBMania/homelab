@@ -80,6 +80,26 @@ data:
               - name: Bluray|WEB 720p
                 qualities: [WEBDL-720p, WEBRip-720p, Bluray-720p]
               - name: HDTV-720p
+          # Anime (VO preferred, MULTi bonus): TRaSH french-anime-multi score set, the same
+          # language rules as the MULTi.VO profiles (original audio required). No guide profile
+          # exists for it, so qualities match the HD profile above. Decided 2026-10-23.
+          - name: "[French Anime MULTi.VO] 1080p"
+            score_set: french-anime-multi
+            reset_unmatched_scores:
+              enabled: true
+            upgrade:
+              allowed: true
+              until_quality: Bluray|WEB 1080p
+              until_score: 10000
+            min_format_score: 0
+            quality_sort: top
+            qualities:
+              - name: Bluray|WEB 1080p
+                qualities: [WEBDL-1080p, WEBRip-1080p, Bluray-1080p]
+              - name: HDTV-1080p
+              - name: Bluray|WEB 720p
+                qualities: [WEBDL-720p, WEBRip-720p, Bluray-720p]
+              - name: HDTV-720p
         custom_format_groups:
           add:
             - trash_id: a23c8675c79118544fd74153394fa589  # [Unwanted] Unwanted Formats French
@@ -87,3 +107,41 @@ data:
           # x265 (HD) at -10000. Skip it: x265 is allowed at 1080p (decided 2026-10-17)
           skip:
             - 158188097a58d7687dee647e04af0da3  # [Optional] Golden Rule HD
+        custom_formats:
+          - trash_ids:
+              - db13a377f7afb29975ea39470434d2ef  # FR Anime Tier 01
+              - 4e6134a384dbc0ef166234cc0e45d26d  # FR Anime Tier 02
+              - db34d4357937fbfe89b63ba095f22155  # FR Anime Tier 03
+              - 2f3422339d185eb227a324644a2fbfca  # FR Scene Groups
+              - 44b6c964dad997577d793fd004a39224  # FR Anime FanSub
+              - b8e91cc8fb2bd96468fab74730c30d18  # FR Remux Tier 01
+              - d844321db5e126d2e7e46152f0706532  # FR HD Bluray Tier 01
+              - ddb8eaa9c85a549c50034d280539d54d  # FR WEB Tier 01
+              - a4c51febd4d8b2a0db10a3c974f21d92  # FR WEB Tier 02
+              - dbfc0a4b5cb4cbd693311c4482ae9683  # FR WEB Tier 03
+              - 10e77b96ae4770a7de645a91a53ce29a  # Language: Original + French
+              - ae575f95ab639ba5d15f663bf019e3e8  # Language: Not Original
+              - 322fca6f8f3694acc1401ddb530fd33d  # Language: Not French
+              - 07a32f77690263bb9fda1842db7e273f  # VOSTFR
+              - d54cd2bf1326287275b56bccedb72ee2  # ADN
+              - 89358767a60cc28783cdc3d0be9388a4  # DSNP
+              - d34870697c9db575f17700212167be23  # NF
+              - d660701077794679fd59e8bdf4ce3a29  # AMZN
+              - ec8fa7296b64e8cd390a1600981f3923  # Repack/Proper
+              - eb3d5cc0a2be0db205fb823640db6a3c  # Repack2
+              - 44e7c4de10ae50265753082e5dc76047  # Repack3
+              # international anime groups (English subs) as fallback, below the FR tiers
+              - e0014372773c8f0e1bef8824f00c7dc4  # Anime Web Tier 01
+              - 19180499de5ef2b84b6ec59aae444696  # Anime Web Tier 02
+              - c27f2ae6a4e82373b0f1da094e2489ad  # Anime Web Tier 03
+              - 949c16fe0a8147f50ba82cc2df9411c9  # Anime BD Tier 01
+              - ed7f1e315e000aef424a58517fa48727  # Anime BD Tier 02
+              - 096e406c92baa713da4a72d88030b815  # Anime BD Tier 03
+              - e3515e519f3b1360cbfc17651944354c  # Anime LQ Groups
+              - b4a1b3d705159cdca36d71e57ca86871  # Anime Raws
+              - 9c14d194486c4014d422adc64092d794  # Dubs Only
+              - 228b8ee9aa0a609463efca874524a6b8  # v2
+              - 0e5833d3af2cc5fa96a0c29cd4477feb  # v3
+              - 4fc15eeb8f2f9a749f918217d4234ad8  # v4
+            assign_scores_to:
+              - name: "[French Anime MULTi.VO] 1080p"
