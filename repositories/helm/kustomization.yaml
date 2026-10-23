@@ -29,6 +29,7 @@ resources:
   - spegel.yaml
   - stakater.yaml
   - topolvm.yaml
+  - traefik.yaml
   - truecharts.yaml
 # more goes here!
   - nvdp.yaml
