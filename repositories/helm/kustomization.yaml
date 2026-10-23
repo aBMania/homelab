@@ -5,6 +5,7 @@ metadata:
     namespace: flux-system
 resources:
   - abmania.yaml
+  - aquasecurity.yaml
   - fait-maison.yaml
   - bjw-s.yaml
   - cilium.yaml

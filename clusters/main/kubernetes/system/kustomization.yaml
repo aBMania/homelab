@@ -15,4 +15,5 @@ resources:
   # - spegel/ks.yaml
   - system-upgrade-controller/ks.yaml
   - traefik-crds/ks.yaml
+  - trivy-operator/ks.yaml
   - volsync/ks.yaml

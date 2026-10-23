@@ -12,6 +12,7 @@ Nothing uses priority 5, so the phone's Do Not Disturb silences everything at ni
 | Flaky detector (CronJob `gatus-flaky`) | same checks, last 6 h | ≥ 3 outages, or ≥ 2 adding up to > 5 % of the time (18 min); an outage = ≥ 2 failed checks in a row, finished, under 1 h; at most once per check per day; "stable again" when the window is clean |
 | healthchecks.io | `cluster` (CronJob `gatus-heartbeat`, only while Gatus is healthy), `truenas` and `emby-lan` (TrueNAS cron job) | no ping for 1 h (period 5 min, grace 55 min) |
 | TrueNAS alert service | anything TrueNAS raises at Warning or above (SMART, pool, capacity, snapshots, replication, updates…) | as TrueNAS raises it |
+| CVE scan (CronJob `trivy-notify`, daily 07:00 UTC) | Trivy Operator's `VulnerabilityReport`s (`system/trivy-operator`, every running image rescanned daily) | a CRITICAL CVE with a fixed version that wasn't sent before; the first run sends one baseline summary |
 
 Status page: `https://status.<domain>`. No login on the LAN, any user's password from outside (Authelia).
 
@@ -31,6 +32,7 @@ Status page: `https://status.<domain>`. No login on the LAN, any user's password
 | TrueNAS not checking in | the TrueNAS cron job stopped for 1 h | TrueNAS |
 | Emby not answering on the LAN | TrueNAS couldn't reach `192.168.1.112:8096` for 1 h | MetalLB, Emby |
 | TrueNAS: … | TrueNAS's own alert text | TrueNAS UI → Alerts |
+| Trivy: N new critical CVEs / Trivy baseline | a running image has a critical CVE that an update fixes | `kubectl get vulns -A`; bump the image (Renovate PR or chart update) |
 
 ## Maintenance
 

@@ -10,6 +10,7 @@ resources:
   - probe-cronjob.yaml
   - flaky-state-pvc.yaml
   - flaky-cronjob.yaml
+  - trivy-notify-cronjob.yaml
 configMapGenerator:
   # Hashed name, rewritten in the CronJobs: a script change applies to the next run
   - name: gatus-probe
@@ -18,3 +19,6 @@ configMapGenerator:
   - name: gatus-flaky
     files:
       - flaky/flaky.py
+  - name: trivy-notify
+    files:
+      - trivy/trivy_notify.py
