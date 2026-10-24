@@ -8,12 +8,11 @@ spec:
   interval: 15m
   chart:
     spec:
-      # renovate: registryUrl=https://traefik.github.io/charts
       chart: traefik-crds
-      version: 1.18.0
+      version: 3.5.1
       sourceRef:
         kind: HelmRepository
-        name: traefik
+        name: truecharts
         namespace: flux-system
       interval: 15m
   timeout: 20m
@@ -30,12 +29,17 @@ spec:
       retries: 3
   uninstall:
     keepHistory: false
-  # Upstream chart (the TrueCharts one is archived). Same release name, so the CRDs are updated
-  # in place. It drops the Gateway API (v1.1.0) and Traefik Hub CRDs the TrueCharts chart also
-  # shipped: nothing uses them (0 objects, Cilium's Gateway API is off).
-  values:
-    traefik: true
-    gatewayAPI: false
-    hub: false
-    # adds helm.sh/resource-policy: keep, so removing this release never deletes the CRDs
-    deleteOnUninstall: false
+  # Being retired: the upstream traefik chart (network/traefik) will ship the CRDs itself.
+  # The upstream traefik-crds chart can't replace this one: it bundles every optional CRD set
+  # (Gateway API is 2.3 MB), so its Helm release record exceeds the 1 MiB Secret limit.
+  # keep: removing this release later must not delete the CRDs (and every Middleware with them).
+  values: { }
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: CustomResourceDefinition
+            patch: |
+              - op: add
+                path: /metadata/annotations/helm.sh~1resource-policy
+                value: keep
