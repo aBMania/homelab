@@ -18,6 +18,11 @@ spec:
     install:
         createNamespace: true
     values:
+      # the chart (0.0.6) pins an April 2025 build on Alpine 3.21 (OpenSSL CVEs); sha-* tags are
+      # immutable builds of whosaid-rs main
+      image:
+        repository: ghcr.io/abmania/whosaid-rs
+        tag: sha-f21b411@sha256:f086ca2ea577f30388ce0d9a755b992994b43b69e1ae26d24b0815844ac98c4b
       # SSD Stage 2: a new instance lands on the default class local-data; then switchover and
       # back to 1 instance (single node: a second copy on the same disk protects nothing)
       cnpg:
