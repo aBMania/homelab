@@ -23,6 +23,11 @@ spec:
       image:
         repository: ghcr.io/abmania/whosaid-rs
         tag: sha-f21b411@sha256:f086ca2ea577f30388ce0d9a755b992994b43b69e1ae26d24b0815844ac98c4b
+      # the DB-wait init container defaults to containerforge postgresql-client 9.6.24 (Ubuntu,
+      # critical CVEs); it only needs sh + pg_isready, which the CNPG database image already has
+      postgresClientImage:
+        repository: ghcr.io/cloudnative-pg/postgresql
+        tag: 16.15@sha256:34cd4159d07b3410a1b29da35072e2e927a0905e717a61afa3814624a2e8859a
       # SSD Stage 2: a new instance lands on the default class local-data; then switchover and
       # back to 1 instance (single node: a second copy on the same disk protects nothing)
       cnpg:
