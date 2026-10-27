@@ -105,7 +105,63 @@ spec:
             wget -qO- --retry-connrefused --tries=30 \
               --post-data "json=$(tr -d '\n ' < /tmp/qbt-prefs.json)" \
               http://127.0.0.1:10095/api/v2/app/setPreferences
+      private-seed:
+        enabled: true
+        data:
+          # Private trackers count upload, public ones don't. Every 60 s:
+          # - force-start finished private torrents, so they never wait in the 25-slot
+          #   seeding queue (2026-10-20: private torrents queued behind public seeds were
+          #   removed after 7 days without uploading, and the ratio went negative);
+          # - while a private torrent has a connected leecher or is downloading, cap every
+          #   public torrent at 8 KiB/s so the private one gets the upload (global caps:
+          #   1 MB/s by day, 6 MB/s at night). The caps are lifted when that demand stops.
+          # Logs counts only (torrent names are media titles).
+          private_seed.py: |
+            import json, time, urllib.parse, urllib.request
+            API = 'http://127.0.0.1:10095/api/v2/'
+            PUBLIC_LIMIT = 8 * 1024
+            DEMAND_STATES = ('downloading', 'forcedDL')
+
+            def call(path, data=None):
+                body = urllib.parse.urlencode(data).encode() if data else None
+                with urllib.request.urlopen(API + path, body, timeout=30) as r:
+                    return r.read()
+
+            def tick():
+                ts = json.loads(call('torrents/info'))
+                private = [t for t in ts if t.get('private')]
+                public = [t for t in ts if t.get('private') is False]
+                force = [t['hash'] for t in private if t['progress'] == 1 and not t['force_start']]
+                if force:
+                    call('torrents/setForceStart', {'hashes': '|'.join(force), 'value': 'true'})
+                demand = [t for t in private if t['num_leechs'] > 0 or t['state'] in DEMAND_STATES]
+                if demand:
+                    todo = [t['hash'] for t in public if t['up_limit'] <= 0]
+                    limit = PUBLIC_LIMIT
+                else:
+                    todo = [t['hash'] for t in public if t['up_limit'] == PUBLIC_LIMIT]
+                    limit = 0
+                if todo:
+                    call('torrents/setUploadLimit', {'hashes': '|'.join(todo), 'limit': limit})
+                if force or todo:
+                    print(f'private={len(private)} demand={len(demand)} force-started={len(force)} '
+                          f'public {"capped" if limit else "uncapped"}={len(todo)}', flush=True)
+
+            while True:
+                try:
+                    tick()
+                except Exception as e:  # qBittorrent restarting, VPN reconnect...
+                    print(f'error: {type(e).__name__}: {e}', flush=True)
+                time.sleep(60)
     persistence:
+      private-seed:
+        enabled: true
+        type: configmap
+        objectName: private-seed
+        targetSelector:
+          main:
+            private-seed:
+              mountPath: /private-seed
       gluetun-scripts:
         enabled: true
         type: configmap
@@ -125,6 +181,35 @@ spec:
         path: /mnt/tank/media
         mountPath: /media
         server: ${NFS_HOST}
+    workload:
+      main:
+        podSpec:
+          containers:
+            # Upload priority for private torrents: see configmap private-seed.
+            # Same image as qBittorrent (it ships python3); talks to the WebUI on
+            # localhost, which qBittorrent lets in without a login.
+            private-seed:
+              enabled: true
+              primary: false
+              imageSelector: image
+              command:
+                - python3
+                - -u
+                - /private-seed/private_seed.py
+              probes:
+                liveness:
+                  enabled: false
+                readiness:
+                  enabled: false
+                startup:
+                  enabled: false
+              resources:
+                requests:
+                  cpu: 5m
+                  memory: 32Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
     # Chart default (tccr mirror) is still v3.40.0
     gluetunImage:
       repository: ghcr.io/qdm12/gluetun
