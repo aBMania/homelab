@@ -22,7 +22,7 @@ spec:
       # immutable builds of whosaid-rs main
       image:
         repository: ghcr.io/abmania/whosaid-rs
-        tag: sha-f21b411@sha256:f086ca2ea577f30388ce0d9a755b992994b43b69e1ae26d24b0815844ac98c4b
+        tag: sha-f21b411@sha256:8366eec8d4e3b904d7c7c2d4d210aeb9a0a769b7a5ff38025be2100fa2b48192
       # the DB-wait init container defaults to containerforge postgresql-client 9.6.24 (Ubuntu,
       # critical CVEs); it only needs sh + pg_isready, which the CNPG database image already has
       postgresClientImage:
