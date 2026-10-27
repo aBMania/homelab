@@ -114,13 +114,19 @@ spec:
           #   removed after 7 days without uploading, and the ratio went negative);
           # - while a private torrent has a connected leecher or is downloading, cap every
           #   public torrent at 8 KiB/s so the private one gets the upload (global caps:
-          #   1 MB/s by day, 6 MB/s at night). The caps are lifted when that demand stops.
+          #   1 MB/s by day, 6 MB/s at night). The caps are lifted 10 min after that demand
+          #   stops (a leecher dropping in and out doesn't flip ~500 limits every minute).
+          # Only seeding torrents are force-started: setForceStart also resumes a stopped one,
+          # so torrents stopped by hand, in error or missing files are left alone.
           # Logs counts only (torrent names are media titles).
           private_seed.py: |
             import json, time, urllib.parse, urllib.request
             API = 'http://127.0.0.1:10095/api/v2/'
             PUBLIC_LIMIT = 8 * 1024
+            HOLD = 600
             DEMAND_STATES = ('downloading', 'forcedDL')
+            SEEDING_STATES = ('uploading', 'stalledUP', 'queuedUP')
+            last_demand = float('-inf')
 
             def call(path, data=None):
                 body = urllib.parse.urlencode(data).encode() if data else None
@@ -128,14 +134,18 @@ spec:
                     return r.read()
 
             def tick():
+                global last_demand
                 ts = json.loads(call('torrents/info'))
                 private = [t for t in ts if t.get('private')]
                 public = [t for t in ts if t.get('private') is False]
-                force = [t['hash'] for t in private if t['progress'] == 1 and not t['force_start']]
+                force = [t['hash'] for t in private
+                         if t['state'] in SEEDING_STATES and t['progress'] == 1 and not t['force_start']]
                 if force:
                     call('torrents/setForceStart', {'hashes': '|'.join(force), 'value': 'true'})
                 demand = [t for t in private if t['num_leechs'] > 0 or t['state'] in DEMAND_STATES]
                 if demand:
+                    last_demand = time.monotonic()
+                if time.monotonic() - last_demand < HOLD:
                     todo = [t['hash'] for t in public if t['up_limit'] <= 0]
                     limit = PUBLIC_LIMIT
                 else:
