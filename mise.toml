@@ -3,7 +3,7 @@
 # Match the cluster versions (Talos, Kubernetes, Flux); bump them together with the cluster upgrade.
 # Renovate only bumps patches for these three (see .github/custom.json5).
 talosctl = "1.14.5"
-kubectl = "1.36.5"
+kubectl = "1.36.6"
 flux2 = "2.9.6"
 talhelper = "3.1.17"
 k9s = "0.51.0"
