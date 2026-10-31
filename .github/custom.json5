@@ -6,7 +6,7 @@
     "dependencyDashboardApproval": false
   },
   "prConcurrentLimit": 5,
-  "prHourlyLimit": 2,
+  "prHourlyLimit": 0,
   "packageRules": [
     {
       "description": ["Talos/Kubernetes/Flux version bumps are cluster upgrades: never automerge. Override the preset's labels, because the 'automerge' label alone makes the GitHub automerge workflow merge the PR (that's how kubelet 1.37 went live unreviewed on 2026-10-08)"],
@@ -14,6 +14,12 @@
       "matchUpdateTypes": ["major", "minor"],
       "automerge": false,
       "labels": ["system-upgrade", "manual-review"]
+    },
+    {
+      "description": ["Postgres majors need a planned dump/restore (CNPG can't upgrade in place): no PRs"],
+      "matchPackageNames": ["ghcr.io/cloudnative-pg/postgresql"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     },
     {
       "description": ["veggie-planner 0.2.x needs the veggie-planner-api image, which isn't published on ghcr.io yet"],
