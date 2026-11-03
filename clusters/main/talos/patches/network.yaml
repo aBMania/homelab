@@ -13,6 +13,12 @@ machine:
             gateway: ${GATEWAY}
         vip:
           ip: ${VIP}
+      # Private NFS link to TrueNAS (bridge br2, no physical port): TrueNAS is 10.30.0.1.
+      # Selected by MAC (pinned on the TrueNAS VM device) so it never takes eth0's place.
+      - deviceSelector:
+          hardwareAddr: "00:a0:98:9b:00:2b"
+        addresses:
+          - 10.30.0.2/30
     nameservers:
       - 1.1.1.1
       - 8.8.8.8
