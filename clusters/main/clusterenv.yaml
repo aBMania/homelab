@@ -44,7 +44,7 @@ LLDAP_PASSWORD: ENC[AES256_GCM,data:9D/L6x6py25SXt9Is45e0rDtAGS1j2QlOu3uI98V,iv:
 SMTP_PASSWORD: ENC[AES256_GCM,data:ffkicRAB/+6nPotobSIUfYzprA==,iv:PvYoLkyURWe++HiADYHaMinBjfHPMAvJUPPHGADaibs=,tag:uf8OQlEeAoZJKFMbqaTx/Q==,type:str]
 SMTP_HOST: ENC[AES256_GCM,data:rke4FkYtTXs/KeKiyKw=,iv:PZNYP2gOZOr5RVdfeQFMg2bSz8WZjkag9vAsM7ojlzk=,tag:54yhr7L3jBRexE72dT1dvA==,type:str]
 SMTP_USER: ENC[AES256_GCM,data:gn95MmoLOhylvhu7jn36lpO+0g==,iv:4DKcK5v7SlRhwAl5XV1eV7TE/diwFp9S9vxPJ/LjEqI=,tag:fNLh5/VV63zzzOl6TJd4uw==,type:str]
-NFS_HOST: ENC[AES256_GCM,data:OI8mCDntBg+mpl4e,iv:+kMqqLNGdzhFCujmeQv58OAls2AkUu9HZ8wDI0XK8Vc=,tag:cOK2kW4ZcUN6vulIR3Iu1g==,type:str]
+NFS_HOST: ENC[AES256_GCM,data:FpBIW1v+JNGP,iv:TpZIgwmc7UyELTz/m4qMtC6ymGDYknlIvpHYvQ7H4Bk=,tag:VnJsmZ1TWY5uXXBytAdJQw==,type:str]
 CLOUDFLARE_TOKEN: ENC[AES256_GCM,data:fDFcPEn7jRSMU0VzVwwoA8m4Wv0l9kOarQRTOAqgjwslXRNUpg==,iv:G98Sj2lbv3MIaer6quzU9C1wL9AygvELG3PojUwVe3k=,tag:v1CayMs9W6hK1oPObOgojg==,type:str]
 VPN_SERVICE_PROVIDER: ENC[AES256_GCM,data:zcQrkUgadIAb,iv:4mNIkP4GdbpOd0qUAkib6rftMGb3FyUE+oLg6wTdPt4=,tag:kE3gRZwmhS6lKPKBpm0RHA==,type:str]
 OPENVPN_USER: ENC[AES256_GCM,data:te8V4AoXCRwJ11ESspb+tw==,iv:dSsnJhWhNEJK1tpOrZ1tQeiW3lAH2dyb9LK/a9u6cNI=,tag:OeeFEPvwrNxGHHQDElxxwA==,type:str]
@@ -74,8 +74,8 @@ sops:
             ZVDZPF/GVeSyYjoPGTue2hOmWeuFfYVTXuwtfp/mSvS3xwnZT8RQ2Q==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1eua6khdgdqv4p8zhxhjzv94ylftmj6lr0jcz4eu2fjyghgpg5fdsldalh2
-    lastmodified: "2026-11-03T19:26:57Z"
-    mac: ENC[AES256_GCM,data:hDVrbOvutbHiwHQBYTeNHjsef6HhyeDdLnR8n9pJ7o1CjAWC/IDgIR74UhoewiBTxmYvrNbVq+XuPyCsEVFGTxFNELu3Y90HCP8Cirf7rRRCSJxqsxhvbpwciKQ99EQur2GmpTZdeEhVlpH6lraZZcGR8zHLnWx2/d+sph+VyA8=,iv:XWTrTDrQO/o4+Mb1u2WbGKnNDGJTPet7K3bPRJgtrZo=,tag:cCesubvpg1bM5xkKY6Me+w==,type:str]
+    lastmodified: "2026-11-03T19:45:36Z"
+    mac: ENC[AES256_GCM,data:wpolGw/NqvL3O/TIhVgYXD2pD5rmppB1foSEA57mCcIMDwq/X8kqIq2+ush41qZJ1XMGQ8MUvBF3yzv0HuEA6lpa9+d+R6fsRBIRvKmM+60tbPpZGxw1UtDrqAkzVSGQtCr9eGAt/RH9jYzUID4H3Spyyl1IB6ODKZLX4FV50CY=,iv:JlVsgehg9N3fTYxT/NCtVsFSxzs3CT9KFAidStvCB28=,tag:hqm1uZiS/I3awQL+RUzsAg==,type:str]
     shamir_threshold: 3
     unencrypted_suffix: _unencrypted
     version: 3.13.3
