@@ -62,15 +62,10 @@ WIREGUARD_ADDRESSES: ENC[AES256_GCM,data:N6kyDelMMAmrU40=,iv:KtJOgB6N4KQ8Y9lJjvU
 VPN_ENDPOINT_PORT: ENC[AES256_GCM,data:BC+Z0g==,iv:TOwpnlHOgTqR29+Sr4yyqT/plaGOzHcfDQPlaR9LE4M=,tag:PtI2t9yprSJ6iPSKwE/7mA==,type:str]
 WIREGUARD_PUBLIC_KEY: ENC[AES256_GCM,data:cB3wXoC91TVksBsGQydjtx1F67v7iSKs6nlnbo0lkhHncDI+zAG1zyEMnn0=,iv:uZLLZi+/GrTKUBb3jVM4TlqcQD0WBAH+IfHwjQedjLE=,tag:aOzxBlSqwPsCVIvYQBNE6w==,type:str]
 VPN_ENDPOINT_IP: ENC[AES256_GCM,data:AabW0XblbjpNgJSyFQ==,iv:8erVLUgCMdLUw9Q8cR0U7bMypB8NgJbwHVGM/vNpsyA=,tag:NZ0gpEs8+X37RsVpRXBBHw==,type:str]
+TRUENAS_IP: ENC[AES256_GCM,data:LpBTlUqi7je4V2+q,iv:en0Ab3coVU2h8oxtBVAHwU/IlSNLz6I4KfRW4R6KRTI=,tag:M8qSvYhEc/1semBzwTH0Ng==,type:str]
 sops:
-    shamir_threshold: 3
-    kms: []
-    gcp_kms: []
-    azure_kv: []
-    hc_vault: []
     age:
-        - recipient: age1eua6khdgdqv4p8zhxhjzv94ylftmj6lr0jcz4eu2fjyghgpg5fdsldalh2
-          enc: |
+        - enc: |
             -----BEGIN AGE ENCRYPTED FILE-----
             YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB3SWh5SEU0ZHFTZGFXVjNZ
             MmR3dnZNUUtMRkN0NlJKM0w1MFlOQmVCOFRJClBvcnJRVmkrbE9VSTZwQ1dXZFdm
@@ -78,7 +73,9 @@ sops:
             TjkwNTFBRVRtUlp1VXJpM3BsWnI4Qm8KCYPuTzp+5FwCriBapISltBCLFZGDDkr8
             ZVDZPF/GVeSyYjoPGTue2hOmWeuFfYVTXuwtfp/mSvS3xwnZT8RQ2Q==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-10-06T07:10:09Z"
-    mac: ENC[AES256_GCM,data:JPmCHm2JUsDCeuwxrUQLf8h52nTgbhaMp/zbUMJ6nNfvbk31rmeGaj+qbusEF3ruSss+Ds4GyBDgy4OgwfPkNGUIG0GO1yxGjl2ZFf9qE1x+G1fJLT1xHQBDwQmRoozdGB1Nc1s8TgEBPnIPHojanNhW9ctD0up+Urj2Jau765Q=,iv:Gmb2B5tyiOfncV56JJqQAQwzh5rsPaXH7efMT9g1dd0=,tag:KufVVMZzDnejG+UydgKd5g==,type:str]
-    pgp: []
-    version: 3.9.4
+          recipient: age1eua6khdgdqv4p8zhxhjzv94ylftmj6lr0jcz4eu2fjyghgpg5fdsldalh2
+    lastmodified: "2026-11-03T19:26:57Z"
+    mac: ENC[AES256_GCM,data:hDVrbOvutbHiwHQBYTeNHjsef6HhyeDdLnR8n9pJ7o1CjAWC/IDgIR74UhoewiBTxmYvrNbVq+XuPyCsEVFGTxFNELu3Y90HCP8Cirf7rRRCSJxqsxhvbpwciKQ99EQur2GmpTZdeEhVlpH6lraZZcGR8zHLnWx2/d+sph+VyA8=,iv:XWTrTDrQO/o4+Mb1u2WbGKnNDGJTPet7K3bPRJgtrZo=,tag:cCesubvpg1bM5xkKY6Me+w==,type:str]
+    shamir_threshold: 3
+    unencrypted_suffix: _unencrypted
+    version: 3.13.3
