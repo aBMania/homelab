@@ -73,7 +73,7 @@ HelmRelease conventions:
 
 ## Variables and secrets
 
-- `${VAR}` placeholders are substituted by Flux `postBuild.substituteFrom` from the `cluster-config` ConfigMap, which is generated from `clusters/main/clusterenv.yaml`. Available keys include `DOMAIN_0`, `NFS_HOST`, `VIP`, `TRAEFIK_IP`, `BLOCKY_IP`, `PODNET`, `SVCNET`, plus a variety of credentials. To use a new value, add it to `clusterenv.yaml` (that requires decrypting it, so ask the user).
+- `${VAR}` placeholders are substituted by Flux `postBuild.substituteFrom` from the `cluster-config` Secret, which Flux applies from `flux-system/flux/clustersettings.secret.yaml`. Available keys include `DOMAIN_0`, `NFS_HOST`, `TRUENAS_IP`, `VIP`, `TRAEFIK_IP`, `BLOCKY_IP`, `PODNET`, `SVCNET`, plus a variety of credentials. `clusters/main/clusterenv.yaml` is a separate copy used by talhelper and `cluster:bootstrap`: to add or change a value, edit **both** files (that requires decrypting them, so ask the user), and merge the Secret change before any manifest that uses the new variable. A missing variable silently becomes an empty string.
 - `cluster-config` is a **Secret** (it holds passwords and tokens), referenced with `substituteFrom: kind: Secret` in both `flux-entry.yaml` files.
 - Substitution applies to every Flux Kustomization. To opt one out, label it `substitution.flux.home.arpa/disabled: "true"`. If a manifest needs a literal `${...}`, escape it as `$${...}`.
 - SOPS (age) encrypts:
