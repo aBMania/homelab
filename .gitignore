@@ -24,3 +24,5 @@ crash.log
 # node:down/node:up state
 .state/
 __pycache__/
+# Local VM seeds (keys, IPs)
+private/
