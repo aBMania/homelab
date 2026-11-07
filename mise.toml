@@ -18,7 +18,7 @@ sops = "3.13.3"
 age = "1.3.2"
 terraform = "1.17.1"
 # Network: Hubble flow CLI (Cilium 1.20), used by `mise run net:drops`
-"aqua:cilium/hubble" = "1.20.2"
+"aqua:cilium/hubble" = "1.20.4"
 
 [env]
 # Secrets for local tooling (e.g. CLOUDFLARE_API_TOKEN). The file is gitignored and never committed.
