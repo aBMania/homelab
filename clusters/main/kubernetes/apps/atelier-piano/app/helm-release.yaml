@@ -1,0 +1,41 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: atelier-piano
+  namespace: atelier-piano
+spec:
+  interval: 5m
+  chart:
+    spec:
+      # renovate: registryUrl=oci://ghcr.io/fait-maison/helm
+      chart: atelier-piano
+      version: 0.1.0
+      sourceRef:
+        kind: HelmRepository
+        name: fait-maison
+        namespace: flux-system
+      interval: 5m
+  install:
+    createNamespace: true
+  values:
+    env:
+      # dev copy of latelierpiano.fr: keep it out of search engines
+      SITE_INDEXABLE: "false"
+    ingress:
+      enabled: true
+      annotations:
+        cert-manager.io/cluster-issuer: domain-0-le-prod
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.tls: "true"
+        # public without auth: per-IP rate limit against floods
+        traefik.ingress.kubernetes.io/router.middlewares: traefik-ratelimit@kubernetescrd
+
+      hosts:
+        - host: atelier-piano.${DOMAIN_0}
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: atelier-piano-tls
+          hosts:
+            - atelier-piano.${DOMAIN_0}
