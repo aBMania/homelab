@@ -64,13 +64,15 @@ spec:
               REMOVE_FAILED_DOWNLOADS: "True"
               # Only imports that are useless anyway (a better/same file is already in
               # the library) or fake releases carrying malware (.exe/.lnk flagged by the
-              # *arrs); other failures are left for manual review
+              # *arrs, or nothing importable at all: qBittorrent skips executables, so an
+              # .exe-only fake ends up with no files); other failures are left for manual review
               REMOVE_FAILED_IMPORTS: |
                 message_patterns:
                   - "Not an upgrade for existing*"
                   - "*already imported at*"
                   - "Episode file on disk contains more episodes than this file contains"
                   - "Caution: Found*"
+                  - "No files found are eligible for import*"
               # Private trackers count a deleted download as a hit-and-run and the ratio
               # suffers: their downloads leave the *arr queue (new search) but stay in
               # qBittorrent to keep seeding (2026-10-20: 2 finished private downloads deleted)
