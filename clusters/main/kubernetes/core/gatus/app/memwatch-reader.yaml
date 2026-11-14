@@ -1,0 +1,39 @@
+---
+# Read-only access to pod memory for the TrueNAS memwatch cron job (top pods by RAM,
+# logged next to the host/VM memory after the 2026-11-14 OOM). Token stored on TrueNAS.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: memwatch-reader
+  namespace: monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: memwatch-reader-token
+  namespace: monitoring
+  annotations:
+    kubernetes.io/service-account.name: memwatch-reader
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: memwatch-reader
+rules:
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: memwatch-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: memwatch-reader
+subjects:
+  - kind: ServiceAccount
+    name: memwatch-reader
+    namespace: monitoring

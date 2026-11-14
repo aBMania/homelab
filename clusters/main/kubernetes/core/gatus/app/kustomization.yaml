@@ -11,6 +11,7 @@ resources:
   - flaky-state-pvc.yaml
   - flaky-cronjob.yaml
   - trivy-notify-cronjob.yaml
+  - memwatch-reader.yaml
 configMapGenerator:
   # Hashed name, rewritten in the CronJobs: a script change applies to the next run
   - name: gatus-probe
