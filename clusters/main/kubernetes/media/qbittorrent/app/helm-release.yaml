@@ -195,6 +195,13 @@ spec:
       main:
         podSpec:
           containers:
+            # The chart's 2400Mi default is mostly page cache: qBittorrent's own (anon)
+            # memory was ~300Mi (2026-11-16) and the kernel drops cache at the limit
+            # (millions of memory.max hits, 0 OOM kills).
+            main:
+              resources:
+                limits:
+                  memory: 1536Mi
             # Upload priority for private torrents: see configmap private-seed.
             # Same image as qBittorrent (it ships python3); talks to the WebUI on
             # localhost, which qBittorrent lets in without a login.
@@ -228,6 +235,13 @@ spec:
       gluetun:
         enabled: true
         container:
+          # Uses ~20Mi; the chart default (2400Mi, same as qBittorrent) is far too much
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 256Mi
           # Restart gluetun if it hangs (it froze for 2 months) or if port
           # forwarding stays dead (v3.41.3 never retries a failed first attempt)
           probes:
