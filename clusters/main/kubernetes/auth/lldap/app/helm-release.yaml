@@ -38,6 +38,12 @@ spec:
     #        accessKey: "${S3_ACCESS_KEY}"
     #        secretKey: "${S3_SECRET_KEY}"
     #        encrKey: "${S3_ENCRYPTION_KEY}"
+    # Alpine rootless build instead of the chart's Debian 11 one: same binary and
+    # command (/app/lldap run, as 568), but 2 fixable HIGH CVEs instead of 88
+    # (old OpenSSL 1.1, GnuTLS, Go stdlib in the Debian image; 2026-11-19).
+    image:
+      repository: ghcr.io/lldap/lldap
+      tag: v0.6.3-alpine-rootless@sha256:ba2c50930ea998eefd5454aa678a7977448019248b1827da87d330df0b71c284
     ingress:
       main:
         # ingressClassName: ""
