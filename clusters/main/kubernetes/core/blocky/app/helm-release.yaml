@@ -90,6 +90,12 @@ spec:
       datasource:
         enabled: false
 
+    # Valkey (redis subchart) image: the chart pins an old "latest" digest with fixable
+    # CRITICAL curl CVEs; this newer digest scanned clean (2026-11-22). Drop this override
+    # once a chart bump ships a newer digest (Renovate doesn't track it here).
+    redis:
+      image:
+        tag: latest@sha256:dc39ba054b5d4192d3ebff4ac6643f155e656fc7809c1b2e8df86e2c0a39f204
     cnpg:
       main:
         enabled: false
